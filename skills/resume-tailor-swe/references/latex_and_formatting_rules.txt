@@ -1,0 +1,64 @@
+LATEX AND FORMATTING RULES
+
+General LaTeX rules
+
+When returning LaTeX:
+1. keep it clean and Overleaf friendly
+2. preserve the existing template style unless it clearly harms ATS readability
+3. do not return malformed LaTeX
+4. do not insert explanation text inside the LaTeX block
+5. do not output partial fragments when a full section rewrite is requested
+
+Macro Specifications & Right-Margin Alignment
+1. In tabular environments (\resumeSubheading, \resumeProjectHeading, \resumeSubSubheading):
+   - ALWAYS use \begin{tabular*}{\linewidth}
+   - NEVER use 0.97\textwidth (causes a 3% right margin gap where dates/locations do not align flush with section lines)
+   - NEVER use \textwidth inside an itemize environment (causes overfull \hbox warnings by 10.8pt)
+2. Heading to bullet spacing:
+   - Use \end{tabular*}\vspace{-2pt} after subheadings.
+   - NEVER use \vspace{-7pt} (causes the first bullet circle to collide with the company name).
+3. Itemize macros:
+   - \newcommand{\resumeItem}[1]{\item\small{#1}} (never embed \vspace inside \resumeItem)
+   - \newcommand{\resumeItemListStart}{\begin{itemize}[leftmargin=*, itemsep=2pt, parsep=0pt, topsep=2pt, partopsep=0pt]}
+   - \newcommand{\resumeItemListEnd}{\end{itemize}\vspace{-3pt}}
+
+Strict 1-Line Character Budgeting & Zero Orphan Words
+1. Every bullet must fit on exactly ONE line edge-to-edge unless explicitly budgeted for a full 2 lines.
+2. Target character count for a 1-line bullet is 90–102 characters.
+3. NEVER allow 105–115 character bullets: they cause the last 1–2 words to spill onto an orphan second line (e.g. "traffic.", "payments.", "MCP"), wasting vertical height.
+4. If a bullet spans two lines, it must fill at least 75% of the second line (170–190 characters).
+
+Chronological Integrity & Metric Truth
+1. Reverse Chronological Ordering:
+   - Oct 2025 -- Present: Co-founder and Automation Engineer (Amin AI)
+   - Dec 2024 -- Present: Software Engineer (TidaMed)
+   - Oct 2024 -- July 2025: Software Engineer (Maryam & Fatima LLC)
+2. Metric De-duplication:
+   - 25% Stripe/PayPal payment lift belongs exclusively to TidaMed telehealth workflows.
+   - Maryam & Fatima focuses on AWS Lambda serverless execution, DynamoDB NoSQL schemas, and 99.9% API reliability.
+   - Amin AI focuses on FastAPI microservices, JSON schemas, Pydantic validation, and MCP tools.
+3. Never fabricate or extrapolate metrics.
+
+One Page Enforcement & Quality Gate Loop
+1. Treat 1 page as a strict, hard constraint.
+2. For every generated resume:
+   a. Compile with tectonic.
+   b. Verify page count == 1 using Quartz or pdfinfo.
+   c. Render page 1 to a 1600px PNG image using `qlmanage -t -s 1600 -o <dir> <pdf_path>`.
+   d. Audit line lengths to confirm zero hanging orphan words.
+   e. If overflow occurs, tighten `itemsep` (from 2pt to 1.5pt) or trim bullet length, recompile, and re-verify.
+
+ATS Formatting Rules
+The resume should stay:
+1. single column
+2. machine readable
+3. text forward
+4. visually clean
+5. simple in structure
+
+Avoid:
+1. icons
+2. visual skill bars
+3. complex tables
+4. two column structures
+5. decorative elements that hurt parsing

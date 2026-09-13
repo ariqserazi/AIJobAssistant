@@ -1,0 +1,139 @@
+%-------------------------
+% Resume in LaTeX
+% Author : Candidate
+% License : MIT
+%------------------------
+
+\documentclass[letterpaper,11pt]{article}
+
+\usepackage{latexsym}
+\usepackage[empty]{fullpage}
+\usepackage{titlesec}
+\usepackage{marvosym}
+\usepackage[usenames,dvipsnames]{color}
+\usepackage{verbatim}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\usepackage{fancyhdr}
+\usepackage[english]{babel}
+\usepackage{tabularx}
+\input{glyphtounicode}
+
+\pagestyle{fancy}
+\fancyhf{} % clear all header and footer fields
+\fancyfoot{}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+
+% Adjust margins
+\addtolength{\oddsidemargin}{-0.5in}
+\addtolength{\evensidemargin}{-0.5in}
+\addtolength{\textwidth}{1in}
+\addtolength{\topmargin}{-.5in}
+\addtolength{\textheight}{1.0in}
+
+\urlstyle{same}
+
+\raggedbottom
+\raggedright
+\setlength{\tabcolsep}{0in}
+
+% Sections formatting
+\titleformat{\section}{
+  \vspace{-4pt}\scshape\raggedright\large
+}{}{0em}{}[\color{black}\titlerule \vspace{-5pt}]
+
+% Ensure that generate pdf is machine readable/ATS parsable
+\pdfgentounicode=1
+
+%-------------------------
+% Custom commands
+\newcommand{\resumeItem}[1]{
+  \item\small{
+    {#1 \vspace{-2pt}}
+  }
+}
+
+\newcommand{\resumeSubheading}[4]{
+  \vspace{-2pt}\item
+    \begin{tabular*}{0.97\textwidth}[t]{l@{\extracolsep{\fill}}r}
+      \textbf{#1} & #2 \\
+      \textit{\small#3} & \textit{\small #4} \\
+    \end{tabular*}\vspace{-7pt}
+}
+
+\newcommand{\resumeSubItem}[1]{\resumeItem{#1}\vspace{-4pt}}
+
+\renewcommand\labelitemii{$\vcenter{\hbox{\tiny$\bullet$}}$}
+
+\newcommand{\resumeSubHeadingListStart}{\begin{itemize}[leftmargin=0.15in, label={}]}
+\newcommand{\resumeSubHeadingListEnd}{\end{itemize}}
+\newcommand{\resumeItemListStart}{\begin{itemize}}
+\newcommand{\resumeItemListEnd}{\end{itemize}\vspace{-5pt}}
+
+%-------------------------------------------
+%%%%%%  RESUME STARTS HERE  %%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{document}
+
+\begin{center}
+    \textbf{\Huge \scshape Jane Doe} \\ \vspace{1pt}
+    \small 555-019-2834 $|$ \href{mailto:jane.doe@example.com}{\underline{jane.doe@example.com}} $|$ 
+    \href{https://linkedin.com/in/username}{\underline{linkedin.com/in/username}} $|$
+    \href{https://github.com/username}{\underline{github.com/username}} $|$
+    \href{https://username.github.io/}{\underline{username.github.io}}
+\end{center}
+
+%-----------EDUCATION-----------
+\section{Education}
+  \resumeSubHeadingListStart
+    \resumeSubheading
+      {State University}{City, State}
+      {Bachelor of Science in Computer Science; GPA: 3.85}{Aug 2020 -- May 2024}
+  \resumeSubHeadingListEnd
+
+%-----------EXPERIENCE-----------
+\section{Experience}
+  \resumeSubHeadingListStart
+    \resumeSubheading
+      {Software Engineer}{Oct 2024 -- Present}
+      {Tech Innovations LLC}{City, State}
+      \resumeItemListStart
+        \resumeItem{Designed and implemented high-throughput REST APIs using Python, FastAPI, and PostgreSQL.}
+        \resumeItem{Engineered distributed background processing pipelines reducing task latency by 45\%.}
+        \resumeItem{Containerized services with Docker and deployed scalable microservices to AWS ECS.}
+      \resumeItemListEnd
+
+    \resumeSubheading
+      {Software Engineering Intern}{Jun 2023 -- Aug 2023}
+      {Enterprise Solutions Inc.}{City, State}
+      \resumeItemListStart
+        \resumeItem{Built full-stack dashboard modules using React, TypeScript, and Node.js.}
+        \resumeItem{Optimized SQL database query indexes, decreasing average endpoint response times by 30\%.}
+      \resumeItemListEnd
+  \resumeSubHeadingListEnd
+
+%-----------PROJECTS-----------
+\section{Projects}
+  \resumeSubHeadingListStart
+    \resumeSubheading
+      {Distributed Event Streaming Pipeline}{Python, gRPC, Kafka, Docker}
+      {Open Source Project}{2024}
+      \resumeItemListStart
+        \resumeItem{Architected real-time event streaming cluster processing 10,000+ messages per second.}
+        \resumeItem{Implemented custom Protobuf schemas ensuring backwards-compatible event serialization.}
+      \resumeItemListEnd
+  \resumeSubHeadingListEnd
+
+%-----------TECHNICAL SKILLS-----------
+\section{Technical Skills}
+ \begin{itemize}[leftmargin=0.15in, label={}]
+    \small{\item{
+     \textbf{Languages}{: Python, Java, JavaScript, TypeScript, SQL, Go, C/C++} \\
+     \textbf{Frameworks}{: FastAPI, React, Node.js, Express, Next.js, Django} \\
+     \textbf{Developer Tools}{: Git, Docker, Kubernetes, AWS, Google Cloud Platform, Linux, Postman} \\
+     \textbf{Databases}{: PostgreSQL, Redis, MongoDB, DynamoDB}
+    }}
+ \end{itemize}
+
+\end{document}

@@ -1,0 +1,89 @@
+COVER LETTER AND OUTREACH RULES
+
+Cover letter goals
+
+The cover letter should:
+1. be specific to the company and role
+2. sound natural, direct, and human
+3. connect the candidate's real background to the job requirements
+4. highlight 2 or 3 of the strongest truthful match points
+5. avoid repeating the resume bullet for bullet
+6. avoid generic flattery
+7. avoid filler
+8. avoid invented metrics, technologies, or ownership claims
+
+Recommended structure
+
+Paragraph 1
+1. state the role
+2. state why the candidate is applying
+3. keep it short and grounded
+
+Paragraph 2
+1. connect the strongest relevant experience to the role
+2. focus on technical fit
+3. mention systems, APIs, cloud, product, infrastructure, or other relevant strengths based on the role
+
+Paragraph 3
+1. highlight one or two additional relevant strengths if useful
+2. show why the candidate would contribute well
+
+Closing
+1. brief and professional
+2. express interest without sounding desperate
+3. keep it concise
+
+Style guidance
+
+Good cover letters feel:
+1. specific
+2. credible
+3. focused
+4. human
+
+Bad cover letters feel:
+1. generic
+2. flattering without substance
+3. too long
+4. repetitive
+5. overly formal
+6. overly dramatic
+
+If the fit is weaker than ideal:
+1. do not oversell
+2. frame the strongest truthful overlap
+3. emphasize adaptability and relevance
+4. keep confidence grounded
+
+Outreach target rules
+
+Choose the best person type based on the role and company:
+1. recruiter when it is a larger company or formal hiring flow
+2. engineering manager or hiring manager when the role is team based and technical fit matters
+3. founder for smaller startups
+4. team lead when that is the most relevant public contact
+
+Always explain briefly why that target type makes the most sense.
+
+LinkedIn message rules
+
+The message must:
+1. stay under 300 characters
+2. sound natural
+3. mention the role or company when useful
+4. lightly market the candidate's fit
+5. avoid sounding desperate
+6. avoid sounding overly polished or robotic
+
+Good outreach messages:
+1. are short
+2. are specific
+3. mention one clear relevant strength
+4. sound like a real person
+
+Bad outreach messages:
+1. are too formal
+2. list too many technologies
+3. beg for attention
+4. sound generic
+5. read like a template

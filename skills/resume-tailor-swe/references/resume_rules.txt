@@ -1,0 +1,159 @@
+RESUME RULES
+
+Role level positioning
+
+Infer the likely target level using:
+1. required years of experience
+2. language around ownership
+3. architecture expectations
+4. review, mentoring, and leadership expectations
+5. scope of systems mentioned
+6. emphasis on execution versus design versus influence
+
+Role level guidance
+
+Early career and entry level
+1. emphasize execution
+2. emphasize technical foundation
+3. emphasize learning velocity
+4. emphasize implementation quality, debugging, collaboration, and shipping
+5. avoid overstating ownership
+
+SWE I
+1. emphasize strong implementation
+2. emphasize coding, debugging, feature delivery, and collaboration
+3. show technical range without overstating scope
+
+SWE II and mid level
+1. emphasize ownership of systems and features
+2. emphasize design decisions
+3. emphasize reliability, scalability, performance, debugging, and production impact
+4. emphasize prioritization and cross functional execution
+
+SWE III and senior leaning mid level
+1. emphasize system thinking
+2. emphasize technical judgment
+3. emphasize service design, maintainability, reliability, and operational quality
+4. highlight ownership clearly when supported
+5. strengthen framing around architecture and system tradeoffs without inventing seniority
+
+Senior and above
+1. emphasize architecture
+2. emphasize technical leadership
+3. emphasize tradeoff analysis
+4. emphasize cross team influence and long term maintainability
+5. never fabricate leadership signals if they are not supported
+
+Job extraction priorities
+
+Extract and rank:
+1. required skills
+2. preferred skills
+3. languages
+4. frameworks
+5. cloud or infrastructure tools
+6. frontend requirements
+7. backend requirements
+8. data and storage technologies
+9. security and reliability expectations
+10. system concepts such as scalability, distributed systems, performance, observability, testing, maintainability, fault tolerance, accessibility, and API design
+11. soft signals such as ownership, collaboration, design reviews, mentoring, and leadership
+12. likely ATS keywords
+
+Rank everything into:
+1. must match
+2. strongly preferred
+3. nice to have
+4. low priority
+
+Rewrite priorities
+
+When tailoring the resume:
+1. increase keyword alignment naturally
+2. elevate the strongest matching experience
+3. reorder bullets based on relevance
+4. compress or remove weak content
+5. make the resume feel focused rather than broad and scattered
+
+Bullet writing rules
+
+Every bullet should be:
+1. specific
+2. compact
+3. technically credible
+4. human sounding
+5. aligned with the role
+
+Preferred bullet pattern:
+action + system or feature + technologies + outcome or impact
+
+Good emphasis areas when supported:
+1. backend systems
+2. API design
+3. cloud services
+4. distributed workflows
+5. reliability
+6. performance
+7. debugging
+8. validation
+9. data modeling
+10. secure design
+11. production readiness
+12. scalability
+13. service architecture
+14. containerization
+15. automation systems
+
+Avoid:
+1. worked on
+2. helped with
+3. responsible for
+4. vague adjectives with no substance
+5. repeated phrasing across bullets
+6. buzzword stuffing
+
+Summary rules
+
+Use a summary only if it adds value.
+A summary should:
+1. be short
+2. be role specific
+3. avoid empty adjectives
+4. avoid generic self description
+
+If space is tight, remove the summary before cutting strong experience bullets.
+
+Skills section rules
+
+The skills section should be targeted, not bloated.
+1. prioritize technologies relevant to the role
+2. group skills cleanly
+3. do not stuff weakly relevant tools
+4. do not list soft skills unless directly useful
+5. do not create inflated categories
+
+For backend roles, elevate:
+Python, Java, C++, Node.js, FastAPI, REST APIs, SQL, PostgreSQL, cloud tools, Docker, distributed systems concepts
+
+For full stack roles, balance frontend and backend appropriately.
+
+For AI or automation roles, elevate:
+Python, FastAPI, LLM APIs, workflow systems, cloud integrations, structured validation, service design
+
+Project selection rules
+
+Projects should:
+1. add real signal for the role
+2. demonstrate system design, backend depth, full stack scope, performance, or infrastructure
+3. be written like engineering work, not class assignments
+4. emphasize design, data flow, APIs, deployment, reliability, and technical depth when supported
+
+One page trimming order
+
+If the resume is too long:
+1. remove weak summary text first
+2. shorten repetitive bullets
+3. cut lower relevance bullets from older or weaker roles
+4. compress less relevant projects
+5. tighten the skills section
+6. preserve the highest signal bullets tied to the target job
