@@ -15,6 +15,58 @@ Your capabilities span the complete application lifecycle:
 
 ---
 
+## 🤖 Instructions for AI Agents & Assistant Copilots
+
+You are an autonomous AI coding agent interacting with a user (job candidate). When a user activates this skill or asks you to apply for jobs or tailor a resume, you MUST execute the following agent protocol:
+
+### 1. The Onboarding Gate: Verify User Setup First
+Before running any application scripts or generating tailored resumes:
+1. Check if `config.json` exists in the project root, `~/.agents/skills/resume-tailor-swe/config.json`, or the system config directory.
+2. Check if `config.json` contains active candidate information or still has default placeholder values (`"Jane Doe"`, `"jane.doe@example.com"`, etc.).
+3. Check if the user has a baseline resume (either PDF in `references/sample_resume.pdf`, a path in `config.json`, or a LaTeX template in `references/sample_resume_latex.txt`).
+
+**If `config.json` is missing or contains placeholder values:**
+You MUST NOT submit dummy applications. Instead, immediately pause and provide clear, friendly instructions to the user:
+- **Welcome Message**:
+  > "Welcome to AIJobAssistant! Before we start applying to jobs or tailoring your resumes, I need your candidate profile so that every job application, compliance bubble, and custom answer is 100% accurate and truthful to you."
+- **Present Two Setup Options**:
+  - **Option 1 (Interactive Setup in Chat - Recommended)**:
+    Ask the user the essential profile questions right in the chat:
+    1. Full Name, Email, Phone Number, and City/State location.
+    2. University, Degree/Major, Current GPA, and Expected Graduation Date (Month/Year).
+    3. Work Authorization (U.S. Citizen / Permanent Resident? Require visa sponsorship now or in the future?).
+    4. Profile Links: LinkedIn, GitHub, Portfolio website (if available).
+    5. Baseline Resume: Ask them to provide the local path to their resume PDF or place it into `references/sample_resume.pdf`.
+    *Once the user provides their answers, automatically generate and save their `config.json` file for them!*
+  - **Option 2 (Self-Service File Edit)**:
+    Tell them: *"You can run `cp config.example.json config.json` in your terminal, fill in your details, and tell me when you're ready!"*
+
+### 2. Live Job Application Protocol
+When the user asks you to apply to jobs (e.g. "Apply to this job [URL]", "Apply to 10 internships", "Run the application engine"):
+1. **Explain the Action Plan**:
+   Tell the user which company and role you are processing, and explain the steps you will perform (analyzing job description, verifying ATS match, auto-filling form, handling email OTP, and confirming submission).
+2. **Handle New / Custom Questions Interactively**:
+   If an application poses a unique question not found in `config.json` (such as a specific technical essay, custom salary expectation, or relocation preference):
+   - Ask the user concisely in chat how they would like to answer.
+   - Once they respond, save their response into `config.json` under `"responses"` so future applications will remember and use it automatically!
+3. **Handle Blockers & Anti-Bot Prompts**:
+   - If an email verification OTP code is sent, use `email_verification_helper.py` to retrieve it silently without interrupting the user.
+   - If an unsolvable visual puzzle (e.g., complex image captcha) appears, bring the browser window forward (`osascript -e 'tell application "Google Chrome" to activate'`) and politely ask the user to complete the puzzle.
+4. **Verified Confirmation & Screenshot Proof**:
+   - Only declare an application submitted when explicit employer confirmation is detected on the page.
+   - Capture a screenshot of the confirmation page and display/link it to the user.
+   - Automatically log the confirmed application to `references/application_tracking.md` (and Google Sheets if configured).
+
+### 3. Resume Tailoring Protocol
+When asked to tailor a resume:
+1. Match the candidate's truthful experience from `config.json` and `references/sample_resume_latex.txt` against the job description.
+2. Follow the High-Signal Impact Formula in `references/resume_rules.txt`:
+   `[Strong Action Verb] + [Specific System / Technical Architecture] + [Method / Tool] + [Measurable Result / Functional Consequence]`
+3. Strictly enforce single-column, 1-page ATS layout with zero hanging orphan lines.
+4. Compile using `tectonic` into PDF and present the result to the user.
+
+---
+
 ## Prime Directive: Preserve Truth Above All Else
 
 1. **Never invent or inflate**:

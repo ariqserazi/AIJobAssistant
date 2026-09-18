@@ -27,6 +27,13 @@ playwright install chromium
 
 ### Step 3: Configure Your Profile
 
+> [!TIP]
+> **Using an AI Agent (Antigravity, Cursor, Claude Code, etc.)?**
+> You don't even need to edit `config.json` manually! Simply ask your agent:
+> *"Help me set up AIJobAssistant for my job search"*
+> The agent will automatically ask you 5 quick questions in chat and generate your `config.json` for you!
+
+
 Copy the template configuration file to `config.json`:
 ```bash
 cp config.example.json config.json
