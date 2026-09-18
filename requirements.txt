@@ -1,0 +1,6 @@
+playwright>=1.40.0
+gspread>=5.10.0
+opencv-python>=4.8.0
+pyautogui>=0.9.54
+numpy>=1.24.0
+certifi>=2023.7.22

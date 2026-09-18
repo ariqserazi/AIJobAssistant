@@ -122,3 +122,17 @@ application_engine/scour_all_job_emails.py
 application_engine/sync_rejections_to_sheet.py
 application_engine/batch_apply_flutter.py
 
+
+# Scratch, debug, test, dump scripts
+apply_*.py
+check_*.py
+debug_*.py
+dump_*.py
+fix_*.py
+inspect_*.py
+scratch_*.py
+test_*.py
+update_*.py
+plan_*.py
+application_engine/plan_*.py
+application_engine/inspect_form.py

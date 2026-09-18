@@ -3,7 +3,7 @@
 apply_workday.py - Workday External Portal Application Automation Helper.
 Implements robust Workday automation:
 1. Native pointer sequencing for React prompt popovers (data-automation-id="promptIcon").
-2. Prototype descriptor override for LinkedIn URL regex formatting (https://www.linkedin.com/in/ariq-serazi/).
+2. Prototype descriptor override for LinkedIn URL regex formatting (e.g. https://www.linkedin.com/in/username/).
 3. Standardized truth EEO, questionnaire, and voluntary disclosure selections.
 4. Employer submission confirmation verification and auto-logging.
 """
@@ -13,8 +13,11 @@ import json
 import time
 import sys
 
-WORKDAY_PASSWORD = "AriqWorkday2026!#"
-LINKEDIN_URL = "https://www.linkedin.com/in/ariq-serazi/"
+from config_loader import get_config
+
+WORKDAY_PASSWORD = get_config("workday_password", "")
+LINKEDIN_URL = get_config("linkedin_url", "https://www.linkedin.com/in/username/")
+
 
 def run_chrome_js(js_code: str) -> str:
     """Executes arbitrary JavaScript in the frontmost Google Chrome tab via AppleScript."""
@@ -144,7 +147,7 @@ def answer_select_one_questions(question_answer_map):
 def handle_workday_verification_code(company=None, max_wait=45):
     """
     Checks if Workday has popped up a verification code modal or screen.
-    If so, retrieves the code from ariq.serazi1@gmail.com and enters it.
+    If so, retrieves the code from the candidate email and enters it.
     """
     import os, sys
     sys.path.insert(0, os.path.expanduser("~/.agents/skills/resume-tailor-swe/scripts"))

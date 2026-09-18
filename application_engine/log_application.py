@@ -8,7 +8,11 @@ import sys
 import argparse
 import datetime
 from pathlib import Path
-from config_loader import get_config
+try:
+    from config_loader import load_config
+    _cfg = load_config()
+except Exception:
+    _cfg = {}
 
 # Fix macOS Python SSL certificate validation
 try:
@@ -19,17 +23,20 @@ except ImportError:
 
 import gspread
 
-KEYFILE = get_config("gspread_keyfile", os.path.expanduser("~/.config/gcloud/legacy_credentials/google-auto-n8n@decoded-tribute-475218-j4.iam.gserviceaccount.com/adc.json"))
-SPREADSHEET_ID = get_config("google_sheet_id", "YOUR_SPREADSHEET_ID")
+KEYFILE = _cfg.get("google_service_account_key") or os.environ.get("GOOGLE_SERVICE_ACCOUNT_KEY", "")
+SPREADSHEET_ID = _cfg.get("google_sheet_id") or os.environ.get("GOOGLE_SPREADSHEET_ID", "")
 TRACKING_MD = os.path.expanduser("~/.agents/skills/resume-tailor-swe/references/application_tracking.md")
 
-
 def get_worksheet():
-    if not os.path.exists(KEYFILE):
-        raise FileNotFoundError(f"Service account keyfile not found at {KEYFILE}")
-    gc = gspread.service_account(filename=KEYFILE)
-    sh = gc.open_by_key(SPREADSHEET_ID)
-    return sh.get_worksheet(0)
+    if not KEYFILE or not os.path.exists(KEYFILE) or not SPREADSHEET_ID:
+        return None
+    try:
+        gc = gspread.service_account(filename=KEYFILE)
+        sh = gc.open_by_key(SPREADSHEET_ID)
+        return sh.get_worksheet(0)
+    except Exception as e:
+        print(f"⚠️ [Google Sheet Notice] Could not connect to sheet: {e}")
+        return None
 
 def find_next_row(ws):
     """Finds the first row where Col A is blank or an empty template row."""
@@ -49,6 +56,9 @@ def log_to_google_sheets(company, role, job_link, status="Submitted - Pending Re
         fcntl.flock(lock_file, fcntl.LOCK_EX)
         try:
             ws = get_worksheet()
+            if not ws:
+                print("  ℹ️ [Google Sheets] Skipped (credentials not configured in config.json).")
+                return None
             target_row = find_next_row(ws)
             
             if not date_str:

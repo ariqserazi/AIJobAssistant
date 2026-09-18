@@ -124,6 +124,32 @@ cp references/application_profile.template.md references/application_profile.md
 
 ---
 
+## 📦 Installation & Setup for Friends
+
+Setting up AIJobAssistant for your own job search takes less than 3 minutes:
+
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/ariqserazi/AIJobAssistant.git
+   cd AIJobAssistant
+   ```
+2. **Install requirements**:
+   ```bash
+   pip install -r requirements.txt
+   playwright install chromium
+   ```
+3. **Configure your profile**:
+   ```bash
+   cp config.example.json config.json
+   ```
+   Edit `config.json` with your name, email, school, degree, links, and job preferences.
+4. **Add your baseline resume**:
+   Drop your PDF resume into `references/sample_resume.pdf`.
+
+For complete details, see [INSTALL.md](INSTALL.md).
+
+---
+
 ## 🚀 Quick Start & Usage
 
 ### 1. Install Dependencies

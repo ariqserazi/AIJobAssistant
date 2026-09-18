@@ -30,13 +30,13 @@ Strict 1-Line Character Budgeting & Zero Orphan Words
 
 Chronological Integrity & Metric Truth
 1. Reverse Chronological Ordering:
-   - Oct 2025 -- Present: Co-founder and Automation Engineer (Amin AI)
-   - Dec 2024 -- Present: Software Engineer (TidaMed)
-   - Oct 2024 -- July 2025: Software Engineer (Maryam & Fatima LLC)
+   - Oct 2025 -- Present: Co-founder and Automation Engineer (Tech Startup)
+   - Dec 2024 -- Present: Software Engineer (Software Labs)
+   - Oct 2024 -- July 2025: Software Engineer (Digital Systems LLC)
 2. Metric De-duplication:
-   - 25% Stripe/PayPal payment lift belongs exclusively to TidaMed telehealth workflows.
-   - Maryam & Fatima focuses on AWS Lambda serverless execution, DynamoDB NoSQL schemas, and 99.9% API reliability.
-   - Amin AI focuses on FastAPI microservices, JSON schemas, Pydantic validation, and MCP tools.
+   - 25% Stripe/PayPal payment lift belongs exclusively to Software Labs telehealth workflows.
+   - Digital Systems focuses on AWS Lambda serverless execution, DynamoDB NoSQL schemas, and 99.9% API reliability.
+   - Tech Startup focuses on FastAPI microservices, JSON schemas, Pydantic validation, and MCP tools.
 3. Never fabricate or extrapolate metrics.
 
 One Page Enforcement & Quality Gate Loop

@@ -15,17 +15,8 @@ import cv2
 import numpy as np
 
 def bring_window_to_front(app_name="Google Chrome"):
-    """Brings the designated browser window to the macOS foreground."""
-    if os.environ.get("HEADLESS", "1") == "1":
-        return
-    try:
-        subprocess.run([
-            "osascript", "-e",
-            f'tell application "{app_name}" to activate'
-        ], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        time.sleep(0.5)
-    except Exception as e:
-        print(f"  [CV Fallback] Error bringing window to front: {e}")
+    """No-op: disabled to avoid stealing user OS focus."""
+    pass
 
 def click_element_cv(page, locator=None, selector='button[type="submit"], button:has-text("Submit Application")', app_name="Google Chrome", min_confidence=0.80):
     """

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 r"""
-tailor_and_compile.py - Deep Dynamic Resume Tailor & LaTeX Compiler for Ariq Serazi
+tailor_and_compile.py - Deep Dynamic Resume Tailor & LaTeX Compiler
 Strictly preserves truth while dynamically tailoring:
-1. Reverse chronological experience ordering (Amin AI -> TidaMed -> Maryam & Fatima LLC).
+1. Reverse chronological experience ordering (Tech Startup -> Software Labs -> Digital Systems LLC).
 2. De-duplicated metrics (distinct, truthful achievements per company).
 3. Exact 1-line bullet budgeting (zero hanging orphan words).
 4. Perfect LaTeX macro alignment (\linewidth tabulars, uniform itemsep=2pt).
@@ -19,7 +19,16 @@ RESUMES_DIR = os.path.expanduser("~/.agents/skills/resume-tailor-swe/artifacts/r
 BASE_RESUME_PATH = os.path.expanduser("~/.agents/skills/resume-tailor-swe/references/base_resume_latex.txt")
 JAVA_RESUME_PATH = os.path.expanduser("~/.agents/skills/resume-tailor-swe/references/Java_resume_latex.txt")
 RESEARCH_RESUME_PATH = os.path.expanduser("~/.agents/skills/resume-tailor-swe/references/research_resume_latex.txt")
-DEFAULT_PDF_FALLBACK = "/Users/ariqserazi/Downloads/Ariq_Serazi__Resume_2026.pdf"
+try:
+    from config_loader import load_config
+except ImportError:
+    try:
+        from application_engine.config_loader import load_config
+    except ImportError:
+        def load_config(): return {}
+
+_cfg = load_config()
+DEFAULT_PDF_FALLBACK = _cfg.get("default_resume_pdf") or str(Path(__file__).parent.parent / "references" / "sample_resume.pdf")
 
 os.makedirs(RESUMES_DIR, exist_ok=True)
 
@@ -33,7 +42,7 @@ BACKEND_EXPERIENCE = r"""\section{Experience}
 
 \resumeSubheading
 {Co-founder and Automation Engineer}{Oct 2025 -- Present}
-{Amin AI}{Edison, NJ}
+{Tech Startup}{New York, NY}
 \resumeItemListStart
 
 \resumeItem{Engineered backend automation microservices in Python and FastAPI to process high-throughput JSON workflows.}
@@ -49,7 +58,7 @@ BACKEND_EXPERIENCE = r"""\section{Experience}
 
 \resumeSubheading
 {Software Engineer}{Dec 2024 -- Present}
-{TidaMed}{Piscataway, NJ}
+{Software Labs}{San Francisco, CA}
 \resumeItemListStart
 
 \resumeItem{Developed high-throughput REST APIs using Node.js and Express to process secure telehealth payments.}
@@ -65,7 +74,7 @@ BACKEND_EXPERIENCE = r"""\section{Experience}
 
 \resumeSubheading
 {Software Engineer}{Oct 2024 -- July 2025}
-{Maryam \& Fatima LLC}{WhiteHouse Station, NJ}
+{Digital Systems LLC}{Austin, TX}
 \resumeItemListStart
 
 \resumeItem{Architected serverless Python backends on AWS Lambda and API Gateway for high-concurrency client requests.}
@@ -117,7 +126,7 @@ FRONTEND_EXPERIENCE = r"""\section{Experience}
 
 \resumeSubheading
 {Co-founder and Automation Engineer}{Oct 2025 -- Present}
-{Amin AI}{Edison, NJ}
+{Tech Startup}{New York, NY}
 \resumeItemListStart
 
 \resumeItem{Built interactive client automation workflows connecting web frontends to FastAPI and language models.}
@@ -133,7 +142,7 @@ FRONTEND_EXPERIENCE = r"""\section{Experience}
 
 \resumeSubheading
 {Software Engineer}{Dec 2024 -- Present}
-{TidaMed}{Piscataway, NJ}
+{Software Labs}{San Francisco, CA}
 \resumeItemListStart
 
 \resumeItem{Developed full-stack web and mobile features using Node.js, Express, and JavaScript for telehealth.}
@@ -149,7 +158,7 @@ FRONTEND_EXPERIENCE = r"""\section{Experience}
 
 \resumeSubheading
 {Software Engineer}{Oct 2024 -- July 2025}
-{Maryam \& Fatima LLC}{WhiteHouse Station, NJ}
+{Digital Systems LLC}{Austin, TX}
 \resumeItemListStart
 
 \resumeItem{Developed cross-platform client applications using Flutter and Dart, building responsive UI features.}
@@ -201,7 +210,7 @@ AI_EXPERIENCE = r"""\section{Experience}
 
 \resumeSubheading
 {Co-founder and Automation Engineer}{Oct 2025 -- Present}
-{Amin AI}{Edison, NJ}
+{Tech Startup}{New York, NY}
 \resumeItemListStart
 
 \resumeItem{Engineered AI automation pipelines in Python and FastAPI, connecting LLMs (Gemini) via JSON schemas.}
@@ -217,7 +226,7 @@ AI_EXPERIENCE = r"""\section{Experience}
 
 \resumeSubheading
 {Software Engineer}{Dec 2024 -- Present}
-{TidaMed}{Piscataway, NJ}
+{Software Labs}{San Francisco, CA}
 \resumeItemListStart
 
 \resumeItem{Engineered automated backend workflows in Node.js and Express to process telehealth payments safely.}
@@ -233,7 +242,7 @@ AI_EXPERIENCE = r"""\section{Experience}
 
 \resumeSubheading
 {Software Engineer}{Oct 2024 -- July 2025}
-{Maryam \& Fatima LLC}{WhiteHouse Station, NJ}
+{Digital Systems LLC}{Austin, TX}
 \resumeItemListStart
 
 \resumeItem{Developed serverless Python backends on AWS Lambda and API Gateway, automating transaction workflows.}
@@ -283,9 +292,11 @@ AI_PROJECTS = r"""\section{Projects}
 def tailor_resume(company, role, job_desc=""):
     clean_company = sanitize_filename(company)
     clean_role = sanitize_filename(role)
-    pdf_filename = f"Ariq_Serazi_{clean_company}_{clean_role}.pdf"
+    _cfg = load_config()
+    prefix = f"{_cfg.get('first_name', 'Candidate')}_{_cfg.get('last_name', 'Resume')}"
+    pdf_filename = f"{prefix}_{clean_company}_{clean_role}.pdf"
     pdf_path = os.path.join(RESUMES_DIR, pdf_filename)
-    tex_filename = f"Ariq_Serazi_{clean_company}_{clean_role}.tex"
+    tex_filename = f"{prefix}_{clean_company}_{clean_role}.tex"
     tex_path = os.path.join(RESUMES_DIR, tex_filename)
 
     full_context = f"{role} {job_desc}".lower()

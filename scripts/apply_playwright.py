@@ -12,55 +12,39 @@ import argparse
 import subprocess
 from playwright.sync_api import sync_playwright
 
-DEFAULT_RESUME_PATH = "/Users/ariqserazi/Downloads/Ariq_Serazi__Resume_2026.pdf"
+try:
+    from config_loader import load_config, get_candidate_dict, get_responses_dict
+except ImportError:
+    try:
+        from application_engine.config_loader import load_config, get_candidate_dict, get_responses_dict
+    except ImportError:
+        def load_config(): return {}
+        def get_candidate_dict(): return {}
+        def get_responses_dict(): return {}
+
+_cfg = load_config()
+_c = get_candidate_dict()
+_resp = get_responses_dict()
+
+DEFAULT_RESUME_PATH = _cfg.get("default_resume_pdf") or str(Path(__file__).parent.parent / "references" / "sample_resume.pdf")
 
 CANDIDATE_DATA = {
-    "first_name": "Ariq",
-    "last_name": "Serazi",
-    "full_name": "Ariq Serazi",
-    "email": "ariq.serazi1@gmail.com",
-    "phone": "732-853-6773",
-    "location": "Piscataway, New Jersey",
-    "linkedin": "https://linkedin.com/in/ariq-serazi",
-    "github": "https://github.com/ariqserazi",
-    "portfolio": "https://ariqserazi.github.io/",
-    "school": "Rutgers University",
-    "degree": "Computer Science",
-    "salary_expectation": "95000",
+    "first_name": _c.get("first_name", "Jane"),
+    "last_name": _c.get("last_name", "Doe"),
+    "full_name": _c.get("name", "Jane Doe"),
+    "email": _c.get("email", "jane.doe@example.com"),
+    "phone": _c.get("phone", "555-123-4567"),
+    "location": _c.get("location", "New York, NY"),
+    "linkedin": _c.get("linkedin", "https://linkedin.com/in/janedoe"),
+    "github": _c.get("github", "https://github.com/janedoe"),
+    "portfolio": _c.get("portfolio", "https://janedoe.dev"),
+    "school": _c.get("school", "State University"),
+    "degree": _c.get("discipline", "Computer Science"),
+    "salary_expectation": _c.get("salary", "80000"),
 }
 
-DEFAULT_FREE_TEXT_RESPONSES = {
-    "project": (
-        "I built Trackwise, a financial synchronization service with a Flutter client "
-        "and a Python backend backed by PostgreSQL and Docker. I designed the relational "
-        "database schemas to ensure transactional consistency for expense records and "
-        "implemented gRPC protocols to reduce network overhead. It represents my focus on "
-        "clean data modeling and reliable backend contracts. https://github.com/ariqserazi/Trackwise"
-    ),
-    "experience": (
-        "As an automation engineer and cofounder at Amin AI, I designed asynchronous Python "
-        "and FastAPI microservices integrated with LLM APIs, Docker, and the MediaWiki REST API. "
-        "At TidaMed, I engineered secure payment workflows with Node.js, Express, and PostgreSQL, "
-        "handling Stripe Checkout and PayPal REST integrations with rigorous error boundaries."
-    ),
-    "why": (
-        "I am drawn to engineering teams focused on building high leverage developer infrastructure, "
-        "clean distributed systems, and reliable API services. My background building full stack and "
-        "backend platforms with Python, Java, and modern databases aligns directly with scaling your systems."
-    ),
-    "process": (
-        "At Amin AI, I designed and implemented an automated validation pipeline using Python "
-        "and FastAPI that validated structured LLM outputs against strict schemas before calling downstream "
-        "APIs. This eliminated malformed requests and minimized manual verification overhead. "
-        "Additionally, building Trackwise reinforced my practice of enforcing database transactions and "
-        "using gRPC contracts to eliminate synchronization drift."
-    ),
-    "organization": (
-        "A well run engineering organization is defined by clear API contracts, continuous automated "
-        "testing, and concise technical documentation. Tight feedback loops during code reviews and "
-        "shared architectural standards allow teams to iterate fast while maintaining high system reliability."
-    )
-}
+DEFAULT_FREE_TEXT_RESPONSES = _resp
+
 
 def bring_window_to_front():
     try:

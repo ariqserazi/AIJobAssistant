@@ -1,3 +1,11 @@
+try:
+    from config_loader import load_config
+except ImportError:
+    try:
+        from application_engine.config_loader import load_config
+    except ImportError:
+        def load_config(): return {}
+
 #!/usr/bin/env python3
 """
 fast_resume_selector.py - Ultra-fast Archetype Resume Selector & Cache Manager
@@ -25,11 +33,13 @@ ARCHETYPES = {
 def get_fast_tailored_resume(company: str, role: str, jd_text: str = "") -> str:
     """
     Selects the optimal pre-compiled archetype resume and creates a clean, standard
-    named copy (Ariq_Serazi_Resume.pdf) in an isolated worker directory.
+    named copy (Candidate_Resume.pdf) in an isolated worker directory.
     """
     worker_dir = OUTPUT_DIR / f"worker_{os.getpid()}"
     worker_dir.mkdir(parents=True, exist_ok=True)
-    dest_path = worker_dir / "Ariq_Serazi_Resume.pdf"
+    cfg = load_config()
+    fname = f"{cfg.get('first_name', 'Candidate')}_{cfg.get('last_name', 'Resume')}.pdf"
+    dest_path = worker_dir / fname
 
     text = f"{role} {jd_text}".lower()
 
@@ -52,7 +62,8 @@ def get_fast_tailored_resume(company: str, role: str, jd_text: str = "") -> str:
         return str(dest_path)
 
     # Fallback to default PDF if cache missing
-    fallback = "/Users/ariqserazi/Downloads/Ariq_Serazi__Resume_2026.pdf"
+    cfg = load_config()
+    fallback = cfg.get("default_resume_pdf") or str(Path(__file__).parent.parent / "references" / "sample_resume.pdf")
     return fallback
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-log_application.py - Directly log confirmed job applications to Ariq's Google Sheets Tracker and local markdown log.
+log_application.py - Directly log confirmed job applications to Google Sheets Tracker and local markdown log.
 """
 
 import os
@@ -8,6 +8,11 @@ import sys
 import argparse
 import datetime
 from pathlib import Path
+try:
+    from config_loader import load_config
+    _cfg = load_config()
+except Exception:
+    _cfg = {}
 
 # Fix macOS Python SSL certificate validation
 try:
@@ -18,16 +23,20 @@ except ImportError:
 
 import gspread
 
-KEYFILE = os.path.expanduser("~/.config/gcloud/legacy_credentials/google-auto-n8n@decoded-tribute-475218-j4.iam.gserviceaccount.com/adc.json")
-SPREADSHEET_ID = "1ne7TIUj4dIInY8TSrIViwUz9lQplyzJCsGWWgrJZEUY"
+KEYFILE = _cfg.get("google_service_account_key") or os.environ.get("GOOGLE_SERVICE_ACCOUNT_KEY", "")
+SPREADSHEET_ID = _cfg.get("google_sheet_id") or os.environ.get("GOOGLE_SPREADSHEET_ID", "")
 TRACKING_MD = os.path.expanduser("~/.agents/skills/resume-tailor-swe/references/application_tracking.md")
 
 def get_worksheet():
-    if not os.path.exists(KEYFILE):
-        raise FileNotFoundError(f"Service account keyfile not found at {KEYFILE}")
-    gc = gspread.service_account(filename=KEYFILE)
-    sh = gc.open_by_key(SPREADSHEET_ID)
-    return sh.get_worksheet(0)
+    if not KEYFILE or not os.path.exists(KEYFILE) or not SPREADSHEET_ID:
+        return None
+    try:
+        gc = gspread.service_account(filename=KEYFILE)
+        sh = gc.open_by_key(SPREADSHEET_ID)
+        return sh.get_worksheet(0)
+    except Exception as e:
+        print(f"⚠️ [Google Sheet Notice] Could not connect to sheet: {e}")
+        return None
 
 def find_next_row(ws):
     """Finds the first row where Col A is blank or an empty template row."""
@@ -47,6 +56,9 @@ def log_to_google_sheets(company, role, job_link, status="Submitted - Pending Re
         fcntl.flock(lock_file, fcntl.LOCK_EX)
         try:
             ws = get_worksheet()
+            if not ws:
+                print("  ℹ️ [Google Sheets] Skipped (credentials not configured in config.json).")
+                return None
             target_row = find_next_row(ws)
             
             if not date_str:
@@ -80,7 +92,7 @@ def log_to_google_sheets(company, role, job_link, status="Submitted - Pending Re
         finally:
             fcntl.flock(lock_file, fcntl.LOCK_UN)
 
-def log_to_markdown(company, role, job_link, location="Remote (US)", resume_used="Base (Ariq_Serazi__Resume_2026.pdf)", status="Submitted (Confirmed)", notes="", date_iso=None):
+def log_to_markdown(company, role, job_link, location="Remote (US)", resume_used="Base Resume", status="Submitted (Confirmed)", notes="", date_iso=None):
     if not os.path.exists(TRACKING_MD):
         return
     if not date_iso:
@@ -117,7 +129,7 @@ def main():
     parser.add_argument("--notes", default="", help="Notes (salary range, location, submission details)")
     parser.add_argument("--date", default=None, help="Submission date in M/D/YYYY format")
     parser.add_argument("--location", default="Remote (US)", help="Location / work mode")
-    parser.add_argument("--resume", default="Base (Ariq_Serazi__Resume_2026.pdf)", help="Resume variant used")
+    parser.add_argument("--resume", default="Base Resume", help="Resume variant used")
     
     args = parser.parse_args()
     

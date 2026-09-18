@@ -1,8 +1,18 @@
+try:
+    from config_loader import load_config
+except ImportError:
+    try:
+        from application_engine.config_loader import load_config
+    except ImportError:
+        def load_config(): return {}
+
+_cfg = load_config()
+
 #!/usr/bin/env python3
 """
 fetch_fresh_internships.py - Daily Fresh SWE Internship & Job Harvester
 Fetches newly-posted early-career SWE and technical internship postings across live tracking repositories,
-filters out all existing applications in Ariq's Google Sheet, enforces candidate constraints,
+filters out all existing applications in Google Sheet Tracker, enforces candidate constraints,
 and builds fresh, deduplicated, company-interleaved application queues.
 """
 
@@ -24,8 +34,8 @@ except ImportError:
 
 import gspread
 
-KEYFILE = os.path.expanduser("~/.config/gcloud/legacy_credentials/google-auto-n8n@decoded-tribute-475218-j4.iam.gserviceaccount.com/adc.json")
-SPREADSHEET_ID = "1ne7TIUj4dIInY8TSrIViwUz9lQplyzJCsGWWgrJZEUY"
+KEYFILE = os.path.expanduser(_cfg.get("google_service_account_key") or os.environ.get("GOOGLE_SERVICE_ACCOUNT_KEY", ""))
+SPREADSHEET_ID = _cfg.get("google_sheet_id") or os.environ.get("GOOGLE_SPREADSHEET_ID", "")
 
 REPO_SOURCES_HTML = [
     {
@@ -52,7 +62,7 @@ SPEEDYAPPLY_MD = {
 }
 
 def load_applied_from_sheet():
-    print("📊 Fetching applied records from Ariq's Google Sheet...", flush=True)
+    print("📊 Fetching applied records from Google Sheet Tracker...", flush=True)
     applied_urls = set()
     applied_pairs = set()
     try:
@@ -99,11 +109,12 @@ def is_suitable_candidate_role(title, comp, loc):
     if any(k in t for k in unwanted_disciplines):
         return False
 
-    # Exclude non-technical / business / compliance roles
+    # Exclude non-technical / business / compliance / trading roles
     unwanted_nontech = [
         "aml", "investigator", "compliance", "legal", "recruiter", "recruiting", "talent",
         "sales", "marketing", "account executive", "financial analyst", "tax intern",
-        "audit intern", "graphic design", "conversation designer", "content designer"
+        "audit intern", "graphic design", "conversation designer", "content designer",
+        "trader", "trading intern", "equity trader", "quant trader", "broker"
     ]
     if any(k in t for k in unwanted_nontech):
         return False
@@ -227,7 +238,7 @@ def harvest_fresh(limit=500):
     except Exception as e:
         print(f"  ❌ Error fetching {SPEEDYAPPLY_MD['name']}: {e}", flush=True)
 
-    print(f"\n🔍 Filtering and curating {len(raw_jobs)} total harvested postings for Ariq...", flush=True)
+    print(f"\n🔍 Filtering and curating {len(raw_jobs)} total harvested postings for Candidate...", flush=True)
     
     fresh_gh_lever_ashby = []
     fresh_workday = []

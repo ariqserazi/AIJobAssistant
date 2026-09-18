@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 email_verification_helper.py - Automated retrieval and entry of one-time security/verification codes
-from ariq.serazi1@gmail.com for Greenhouse, Workday, and other ATS platforms.
+from candidate email for Greenhouse, Workday, and other ATS platforms.
 """
 
 import os
@@ -74,12 +74,12 @@ import fcntl
 
 def _get_latest_verification_code_inner(company=None, max_wait_sec=45, ignore_codes=None):
     """
-    Polls ariq.serazi1@gmail.com for a one-time verification code / security code silently.
+    Polls candidate email inbox for a one-time verification code / security code silently.
     Never activates or steals focus from the user's Chrome window.
     """
     used_on_disk = _load_used_codes()
     ignore_set = set(ignore_codes or []).union(USED_CODES).union(used_on_disk)
-    print(f"  📬 [Email Code] Checking ariq.serazi1@gmail.com for verification code (Company: {company or 'Any'})...", flush=True)
+    print(f"  📬 [Email Code] Checking email inbox for verification code (Company: {company or 'Any'})...", flush=True)
 
     start_time = time.time()
     tab = _get_or_create_gmail_tab()
@@ -258,7 +258,7 @@ def get_latest_verification_code(company=None, max_wait_sec=45, ignore_codes=Non
 def handle_verification_code_if_present(page, company=None, max_wait=45, ignore_codes=None):
     """
     Checks if the active page has an email verification code / security code prompt.
-    If so, fetches the code from ariq.serazi1@gmail.com, types it in, and resubmits.
+    If so, fetches the code from candidate email, types it in, and resubmits.
     Returns True if a code was handled and submitted, False otherwise.
     """
     try:

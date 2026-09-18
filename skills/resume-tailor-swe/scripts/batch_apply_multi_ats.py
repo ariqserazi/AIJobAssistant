@@ -14,87 +14,84 @@ import subprocess
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 
+# Enable mouse‑click mode via environment variable
+USE_MOUSE = os.getenv("USE_MOUSE", "false").lower() == "true"
+
 ENGINE_DIR = Path(__file__).parent.resolve()
-sys.path.insert(0, str(ENGINE_DIR))
 sys.path.insert(0, os.path.expanduser("~/.agents/skills/resume-tailor-swe/scripts"))
+sys.path.insert(0, str(ENGINE_DIR))
 
 from fast_resume_selector import get_fast_tailored_resume
 from cv_mouse_fallback import click_element_cv, bring_window_to_front
 from email_verification_helper import handle_verification_code_if_present
+from captcha_solver import handle_captchas_if_present, screenshot_captcha
+from question_logger import log_discovered_question
+from employer_selector import get_recent_employer
+
 
 LOG_SCRIPT = os.path.expanduser("~/.agents/skills/resume-tailor-swe/scripts/log_application.py")
 CONFIRMATIONS_DIR = os.path.expanduser("~/.agents/skills/resume-tailor-swe/artifacts/confirmations")
 os.makedirs(CONFIRMATIONS_DIR, exist_ok=True)
+ERRORS_DIR = os.path.expanduser("~/.agents/skills/resume-tailor-swe/artifacts/errors")
+os.makedirs(ERRORS_DIR, exist_ok=True)
+SCRATCH_ERRORS_DIR = os.environ.get("SCRATCH_DIR", os.path.join(tempfile.gettempdir(), "job_assistant_scratch"))
+os.makedirs(SCRATCH_ERRORS_DIR, exist_ok=True)
 
-CANDIDATE = {
-    "name": "Ariq Serazi",
-    "first_name": "Ariq",
-    "last_name": "Serazi",
-    "email": "ariq.serazi1@gmail.com",
-    "phone": "732-853-6773",
-    "location": "Piscataway, New Jersey",
-    "city": "Piscataway",
-    "state": "New Jersey",
-    "country": "United States",
-    "zip_code": "08854",
-    "postal_code": "08854",
-    "discipline": "Computer Science",
-    "major": "Computer Science",
-    "field_of_study": "Computer Science",
-    "current_company": "Amin AI",
-    "current_title": "Software Engineer",
-    "linkedin": "https://linkedin.com/in/ariq-serazi",
-    "github": "https://github.com/ariqserazi",
-    "portfolio": "https://ariqserazi.github.io/",
-    "school": "Rutgers University - New Brunswick",
-    "degree": "Master of Science in Computer Science",
-    "degree_undergrad": "Bachelor of Science in Computer Science",
-    "gpa": "3.85",
-    "undergrad_start_year": "2020",
-    "undergrad_start_month": "September",
-    "undergrad_grad_year": "2024",
-    "undergrad_grad_month": "May",
-    "grad_start_year": "2026",
-    "grad_start_month": "September",
-    "grad_end_year": "2028",
-    "grad_end_month": "May",
-    "grad_date": "05/2028",
-    "grad_month_year": "May 2028",
-    "salary": "95000",
-    "pronouns": "He/Him",
-    "preferred_language": "Python",
-    "citizenship": "U.S. Citizen",
-    "us_citizen": "Yes",
-    "us_person": "Yes"
-}
+from config_loader import get_candidate_dict, get_responses_dict, load_config
+_cfg = load_config()
+CANDIDATE = get_candidate_dict()
+RESPONSES = get_responses_dict()
 
-RESPONSES = {
-    "why": "I am deeply inspired by your team's mission and engineering standards. My background in building high reliability systems and AI pipelines aligns directly with this role. I want to build robust software that delivers real impact.",
-    "experience": "At Amin AI and TidaMed I engineered production microservices with Python, Node.js, and TypeScript, integrating external APIs with strict JSON validation and sub 100ms response times. I focus heavily on reliability and clean system design.",
-    "project": "I built Trackwise, a distributed financial tracking service utilizing Flutter, gRPC, and PostgreSQL. It achieved sub 100ms real time synchronization, reducing network overhead by 30 percent across distributed clients.",
-    "clearance": "No, but I am a US Citizen eligible for clearance.",
-    "pronunciation": "Ah-reek Seh-rah-zee"
-}
+def get_dynamic_cover_letter():
+    name = CANDIDATE.get("name", "Applicant")
+    school = CANDIDATE.get("school", "University")
+    degree = CANDIDATE.get("degree", "Computer Science")
+    employer = CANDIDATE.get("current_company", "Technology Company")
+    project = CANDIDATE.get("featured_project", "Distributed Systems")
+    return (
+        f"Dear Hiring Team,\n\n"
+        f"I am writing to express my strong interest in joining your team. With a {degree} from {school} "
+        f"and software engineering experience building production services and distributed systems, "
+        f"I am excited about the opportunity to contribute to your engineering goals.\n\n"
+        f"At {employer}, I engineered backend microservices and reliable automation pipelines. "
+        f"Additionally, in my project {project}, I designed high-performance service contracts and optimized data architectures "
+        f"to achieve real-time synchronization across distributed clients.\n\n"
+        f"Thank you for your consideration.\n\nSincerely,\n{name}"
+    )
 
 def safe_click(el):
     try:
         el.scroll_into_view_if_needed()
-        el_id = el.get_attribute("id")
-        parent = el.evaluate_handle("el => el.closest('div') || el")
-        if el_id and parent.as_element():
-            lbl = parent.as_element().query_selector(f"label[for='{el_id}'], label")
-            if lbl:
-                lbl.click(force=True)
-                return
-        el.click(force=True)
+        lbl = el.evaluate_handle("el => el.closest('label')")
+        if lbl.as_element():
+            lbl.as_element().click(force=True)
+        else:
+            el.click(force=True)
+        el.evaluate("""el => {
+            if (el.tagName === 'INPUT' && (el.type === 'radio' || el.type === 'checkbox')) {
+                el.checked = true;
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }""")
     except Exception:
         try:
-            el.evaluate("el => { const l = el.closest('div') ? el.closest('div').querySelector('label') : null; if(l) l.click(); else el.click(); }")
+            el.evaluate("""el => {
+                const l = el.closest('label');
+                if (l) l.click();
+                else el.click();
+                if (el.tagName === 'INPUT' && (el.type === 'radio' || el.type === 'checkbox')) {
+                    el.checked = true;
+                    el.dispatchEvent(new Event('input', { bubbles: true }));
+                    el.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            }""")
         except Exception:
             pass
 
-def fill_greenhouse(page, pdf_path):
+def fill_greenhouse(page, pdf_path, company="", role="", jd_text=""):
     print("  [Greenhouse Engine] Filling application form...", flush=True)
+    recent_emp = get_recent_employer(company=company, role=role, jd_text=jd_text)
     # 1. Base inputs
     mappings = [
         ("first_name", CANDIDATE["first_name"]),
@@ -147,21 +144,25 @@ def fill_greenhouse(page, pdf_path):
                     return (aria + ' ' + lbl + ' ' + placeholder + ' ' + name + ' ' + id).toLowerCase();
                 }''')
 
-                if any(k in ctx for k in ["phone", "mobile", "tel", "cell"]):
+                if any(k in ctx for k in ["pronounced", "phonetic", "how your name is pronounced"]):
+                    ti.fill("Ah-reek Seh-rah-zee")
+                    print("    [Greenhouse Engine] Filled phonetic name: Ah-reek Seh-rah-zee", flush=True)
+                elif (any(k in ctx for k in ["phone", "mobile", "tel", "cell"]) or re.search(r'\bphone\b', ctx)) and not any(k in ctx for k in ["phonetic", "pronounced"]):
                     ti.fill(CANDIDATE["phone"])
                     print(f"    [Greenhouse Engine] Filled phone into '{ctx[:30]}'", flush=True)
                 elif any(k in ctx for k in ["previous employer", "the one before", "prior employer"]):
-                    ti.fill("TidaMed")
-                    print("    [Greenhouse Engine] Filled previous employer: TidaMed", flush=True)
+                    prior_emp = _cfg.get("current_employer", "Tech Startup") if recent_emp == _cfg.get("previous_employer", "Software Labs") else _cfg.get("previous_employer", "Software Labs")
+                    ti.fill(prior_emp)
+                    print(f"    [Greenhouse Engine] Filled previous employer: {prior_emp}", flush=True)
                 elif any(k in ctx for k in ["most recent employer", "recent employer", "current employer", "last employer", "current company"]):
-                    ti.fill("Amin AI")
-                    print("    [Greenhouse Engine] Filled most recent employer: Amin AI", flush=True)
+                    ti.fill(recent_emp)
+                    print(f"    [Greenhouse Engine] Filled most recent employer: {recent_emp}", flush=True)
                 elif any(k in ctx for k in ["job title", "current title", "current job title", "title"]) and not any(k in ctx for k in ["mr", "ms", "prefix"]):
                     ti.fill(CANDIDATE["current_title"])
                     print(f"    [Greenhouse Engine] Filled title: {CANDIDATE['current_title']}", flush=True)
                 elif any(k in ctx for k in ["current company", "employer", "company"]) and not any(k in ctx for k in ["hear", "source"]):
-                    ti.fill(CANDIDATE["current_company"])
-                    print(f"    [Greenhouse Engine] Filled employer: {CANDIDATE['current_company']}", flush=True)
+                    ti.fill(recent_emp)
+                    print(f"    [Greenhouse Engine] Filled employer: {recent_emp}", flush=True)
                 elif any(k in ctx for k in ["sat score"]) or re.search(r'\bsat\b', ctx):
                     ti.fill("1280")
                     print("    [Greenhouse Engine] Filled SAT: 1280", flush=True)
@@ -182,31 +183,60 @@ def fill_greenhouse(page, pdf_path):
                     else:
                         ti.fill("May 2028")
                     print("    [Greenhouse Engine] Filled graduation: May 2028", flush=True)
+                elif any(k in ctx for k in ["start year", "start date year", "start-year"]):
+                    ti.fill("2024")
+                    print("    [Greenhouse Engine] Filled start year: 2024", flush=True)
+                elif any(k in ctx for k in ["end year", "end date year", "end-year"]):
+                    is_emp = ti.evaluate("el => !!el.closest('#employment_section, [data-qa*=\"employment\"], .employment, [class*=\"employment\"], fieldset[id*=\"employment\"], div[id*=\"employment\"], #employment_section_fields') || el.id.includes('end-date-year')")
+                    if is_emp:
+                        cb_clicked = ti.evaluate('''el => {
+                            const p = el.closest('#employment_section, [data-qa*="employment"], .employment, [class*="employment"], fieldset, form, div');
+                            const cb = p ? p.querySelector('input[type="checkbox"][id*="current-role"], input[type="checkbox"]') : null;
+                            if (cb && !cb.checked) { cb.click(); return true; }
+                            return false;
+                        }''')
+                        if cb_clicked:
+                            print("    [Greenhouse Engine] Checked 'Current role' checkbox for employment", flush=True)
+                            ti.fill("")
+                        else:
+                            ti.fill("2024")
+                            print("    [Greenhouse Engine] Filled employment end year: 2024", flush=True)
+                    else:
+                        ti.fill("2028")
+                        print("    [Greenhouse Engine] Filled graduation end year: 2028", flush=True)
                 elif any(k in ctx for k in ["when are you available to start", "available to start", "start date", "ideal start date", "when can you start", "commence"]):
                     ti_type = ti.get_attribute("type") or ""
-                    if ti_type == "date":
-                        ti.fill("2027-06-01")
+                    is_year = "year" in ctx or ti.get_attribute("maxlength") == "4"
+                    is_winter = any(w in ctx for w in ["winter", "january", "december"])
+                    if is_year:
+                        ti.fill("2026" if is_winter else "2027")
+                    elif ti_type == "date":
+                        ti.fill("2026-12-20" if is_winter else "2027-05-20")
                     else:
-                        ti.fill("Summer 2027")
-                    print("    [Greenhouse Engine] Filled start date: Summer 2027", flush=True)
+                        ti.fill("December 20, 2026" if is_winter else "May 20, 2027")
+                    print(f"    [Greenhouse Engine] Filled start date: {'December 20, 2026' if is_winter else 'May 20, 2027'}", flush=True)
                 elif any(k in ctx for k in ["preferred end date", "end date"]):
                     ti_type = ti.get_attribute("type") or ""
-                    if ti_type == "date":
+                    is_year = "year" in ctx or ti.get_attribute("maxlength") == "4"
+                    if is_year:
+                        ti.fill("2028")
+                    elif ti_type == "date":
                         ti.fill("2027-08-31")
                     else:
                         ti.fill("August 2027")
+                    print("    [Greenhouse Engine] Filled end date: August 2027", flush=True)
                 elif any(k in ctx for k in ["c++ feature", "favorite c++"]):
                     ti.fill("Smart pointers and RAII for deterministic memory management and safety")
                 elif any(k in ctx for k in ["salary expectation", "hourly rate", "hourly compensation", "desired hourly", "compensation expectations", "compensation range"]):
                     ti_type = ti.get_attribute("type") or ""
                     if ti_type == "number":
-                        ti.fill("45")
+                        ti.fill("40")
                     else:
-                        ti.fill("$45/hr")
+                        ti.fill("$40/hr")
                 elif any(k in ctx for k in ["notice period", "current notice"]):
                     ti.fill("Immediate / 2 weeks")
                 elif any(k in ctx for k in ["achievement", "proud of", "most challenging project", "favorite project", "challenging project", "achievement you're particularly proud of"]):
-                    ti.fill("At Amin AI I engineered automated microservices using Python and FastAPI with strict JSON schema validation to reliably process complex multi service workflows. In addition I built Trackwise a distributed real time expense tracker using Flutter and gRPC with PostgreSQL achieving sub 100ms synchronization and 30 percent network efficiency gains.")
+                    ti.fill(RESPONSES.get("experience", "I have engineered production microservices and REST APIs, integrating cloud tools with strict schema validation and sub-100ms response times."))
                 elif any(k in ctx for k in ["why vercel", "why figma", "why samsara", "why appian", "why hp iq", "why are you interested", "what excites you about this opportunity"]):
                     ti.fill("I admire your engineering culture and focus on high performance developer tools and distributed systems. My background in building responsive APIs with FastAPI and scalable distributed services aligns directly with your mission and I would love to contribute meaningfully as an intern.")
                 elif any(k in ctx for k in ["tell us something about yourself", "can't find on your resume", "cant find on your resume"]):
@@ -217,7 +247,7 @@ def fill_greenhouse(page, pdf_path):
                     ti.fill("None")
                 elif any(k in ctx for k in ["did anyone refer you", "who referred you", "referred by an employee"]):
                     ti.fill("No")
-                elif any(k in ctx for k in ["visa classification", "visa status", "immigration sponsorship needs", "if working on a visa", "if no, please explain your status"]):
+                elif any(k in ctx for k in ["visa classification", "visa status", "immigration sponsorship needs", "if working on a visa", "if no, please explain your status", "enter n/a", "enter 'n/a'", "extension options", "when does it expire", "additional detail about your sponsorship", "sponsorship needs"]):
                     ti.fill("N/A")
                 elif any(k in ctx for k in ["drivers license"]):
                     ti.fill("N/A")
@@ -253,7 +283,7 @@ def fill_greenhouse(page, pdf_path):
     except Exception as e:
         print(f"    [Greenhouse Engine] Text scanner notice: {e}", flush=True)
 
-    TRANSCRIPT_PATH = "/Users/ariqserazi/Downloads/Ariq_Serazi_Rutgers_Transcript.pdf"
+    TRANSCRIPT_PATH = _cfg.get("transcript_pdf", "")
 
     # 2. File upload (Resume & Transcript)
     fi = page.locator("input[type='file'][id*='resume'], input[type='file'][name*='resume' i], input#resume, input[type='file']").first
@@ -278,7 +308,7 @@ def fill_greenhouse(page, pdf_path):
                     upload_label = f.evaluate('el => (el.closest(".file-upload")?.querySelector(".upload-label")?.innerText || el.closest(".field-wrapper, .field")?.querySelector("label, legend")?.innerText || "")').lower()
                     if any(k in upload_label or k in f_id.lower() or k in f_name.lower() for k in ["transcript", "grades", "academic record"]):
                         f.set_input_files(TRANSCRIPT_PATH)
-                        print(f"  [Greenhouse Engine] Uploaded Rutgers Transcript to '{upload_label[:30]}' ({f_id})", flush=True)
+                        print(f"  [Greenhouse Engine] Uploaded Transcript to '{upload_label[:30]}' ({f_id})", flush=True)
                         time.sleep(1.0)
                 except Exception:
                     pass
@@ -294,7 +324,7 @@ def fill_greenhouse(page, pdf_path):
             let p = el;
             for (let i = 0; i < 5; i++) {
                 if (!p) break;
-                const l = p.querySelector('label, legend');
+                const l = p.querySelector('label, .label, legend');
                 if (l && l.innerText.trim()) return l.innerText.trim();
                 p = p.parentElement;
             }
@@ -306,11 +336,17 @@ def fill_greenhouse(page, pdf_path):
             if "optional" in lbl_text or not w_req:
                 print("  [Greenhouse Engine] Skipping optional cover letter textarea (strictly blank per user instruction)", flush=True)
             else:
-                ta.fill("Dear Hiring Team,\n\nI am writing to express my strong interest in joining your team. With a Bachelor of Science in Computer Science from Rutgers University (3.85 GPA) and professional software engineering experience building production services with Python, FastAPI, and distributed systems, I am excited about the opportunity to contribute to your engineering goals.\n\nAt Amin AI, I designed automated validation pipelines integrating LLMs with Python and FastAPI. Additionally, I built Trackwise, a distributed financial tracking service utilizing Python, gRPC, and PostgreSQL that achieved sub 100ms real time synchronization across clients.\n\nThank you for your consideration.\n\nSincerely,\nAriq Serazi")
+                ta.fill(get_dynamic_cover_letter())
+        elif any(k in lbl_text for k in ["start month/year of university", "start month/year"]):
+            ta.fill(f"{CANDIDATE.get('undergrad_start_month', 'September')} {CANDIDATE.get('undergrad_start_year', '2022')} to {CANDIDATE.get('grad_month_year', 'May 2026')}")
+        elif any(k in lbl_text for k in ["clouds", "misclassifies", "aircraft computer vision", "flight logs"]):
+            ta.fill("I would first aggregate the flight logs into a structured queryable format to correlate false positive obstacle detections against metadata features such as camera light levels, altitude, and timestamp derived solar angles. Next, I would perform exploratory statistical clustering and feature importance analysis to identify specific environmental conditions where cloud edge contrast triggers high confidence false positives. Finally, I would isolate these edge cases to visualize the misclassified frames and establish targeted thresholding or training data augmentations.")
+        elif any(k in lbl_text for k in ["sponsorship for employment visa status", "require sponsorship"]):
+            ta.fill(CANDIDATE.get("sponsorship_required", "No"))
         elif any(k in lbl_text for k in ["datadog", "why", "interested", "draw", "attract"]):
-            ta.fill("I want to build my engineering career with your team because of your relentless focus on high scale distributed systems and engineering rigor. Handling massive transaction volume and telemetry requires world class backend architectures and robust pipelines. My experience designing asynchronous Python microservices and low latency data systems at Amin AI aligns directly with this mission. I want to work alongside exceptional engineers to build resilient software that keeps global systems reliable.")
+            ta.fill(RESPONSES.get("why", "I want to build my engineering career with your team because of your relentless focus on high scale distributed systems and engineering rigor. Handling massive transaction volume and telemetry requires world class backend architectures and robust pipelines. I want to work alongside exceptional engineers to build resilient software that keeps global systems reliable."))
         elif any(k in lbl_text for k in ["project", "accomplishment"]):
-            ta.fill(RESPONSES["project"])
+            ta.fill(RESPONSES.get("project", ""))
         elif any(k in lbl_text for k in ["additional", "anything else", "comment"]):
             pass
         elif w_req:
@@ -362,7 +398,7 @@ def fill_greenhouse(page, pdf_path):
                     loc_inp = s.locator("#candidate-location, input.select__input, input").first
                     if loc_inp.count() > 0 and not loc_inp.input_value().strip():
                         loc_inp.focus()
-                        loc_inp.press_sequentially("Piscataway", delay=50)
+                        loc_inp.press_sequentially(CANDIDATE.get("city", "New York"), delay=50)
                         time.sleep(1.5)
                         raw_suggs = s.locator('.select__menu div[class*="option"]').all()
                         suggs = [o for o in raw_suggs if "no-options" not in (o.get_attribute("class") or "").lower() and "no options" not in o.inner_text().lower()]
@@ -383,11 +419,17 @@ def fill_greenhouse(page, pdf_path):
                 if is_school_field:
                     sch_inp = s.locator("input.select__input, input[id*='school'], input").first
                     if sch_inp.count() > 0:
+                        try:
+                            sch_inp.click(force=True)
+                        except Exception:
+                            pass
                         sch_inp.focus()
-                        sch_inp.press_sequentially("Rutgers", delay=40)
-                        time.sleep(1.5)
+                        sch_inp.press_sequentially(_cfg.get("school_search_term", "State"), delay=50)
+                        time.sleep(2.0)
                         raw_suggs = s.locator('.select__menu div[class*="option"]').all()
-                        suggs = [o for o in raw_suggs if "no-options" not in (o.get_attribute("class") or "").lower() and "no options" not in o.inner_text().lower()]
+                        if not raw_suggs:
+                            raw_suggs = page.locator('.select__menu div[class*="option"], div[class*="select__option"], div[id*="option"]').all()
+                        suggs = [o for o in raw_suggs if "no-options" not in (o.get_attribute("class") or "").lower() and "no options" not in o.inner_text().lower() and "camden" not in o.inner_text().lower() and "newark" not in o.inner_text().lower()]
                         nb_sugg = next((o for o in suggs if "new brunswick" in o.inner_text().lower()), None)
                         target_sugg = nb_sugg if nb_sugg else (suggs[0] if suggs else None)
                         if target_sugg:
@@ -404,10 +446,16 @@ def fill_greenhouse(page, pdf_path):
                 if is_disc_field:
                     disc_inp = s.locator("input.select__input, input[id*='discipline'], input[id*='major'], input").first
                     if disc_inp.count() > 0:
+                        try:
+                            disc_inp.click(force=True)
+                        except Exception:
+                            pass
                         disc_inp.focus()
-                        disc_inp.press_sequentially("Computer Science", delay=40)
-                        time.sleep(1.0)
+                        disc_inp.press_sequentially("Computer Science", delay=50)
+                        time.sleep(1.5)
                         raw_suggs = s.locator('.select__menu div[class*="option"]').all()
+                        if not raw_suggs:
+                            raw_suggs = page.locator('.select__menu div[class*="option"], div[class*="select__option"], div[id*="option"]').all()
                         suggs = [o for o in raw_suggs if "no-options" not in (o.get_attribute("class") or "").lower() and "no options" not in o.inner_text().lower()]
                         cs_sugg = next((o for o in suggs if "computer science" in o.inner_text().lower()), None)
                         target_sugg = cs_sugg if cs_sugg else (suggs[0] if suggs else None)
@@ -478,15 +526,17 @@ def fill_greenhouse(page, pdf_path):
                     target_opt = None
                     if "push" in lbl_text:
                         target_opt = next((o for o, t in clean_opts if t == "no"), None)
+                    elif any(k in lbl_text for k in ["worked at", "worked for", "employed by", "employed at", "previous employment", "prior employment", "previous employee", "former employee", "ever worked", "worked before"]):
+                        target_opt = next((o for o, t in clean_opts if any(neg in t for neg in ["never", "have not", "no", "not a previous", "neither", "none", "i do not", "not worked"])), None)
                     elif "gpa" in lbl_text:
                         target_opt = None
-                        for k in ["3.8", "3.9", "3.85", "3.81 - 3.9", "3.71 - 3.8", "3.7 or higher", "3.7+", "3.7 or above", "3.6 - 4.0", "3.6-4.0", "3.6 or above", "3.51 - 3.6", "3.5 or above", "3.5+", "3.5 - 4.0", "3.5-4.0", "3.5"]:
+                        for k in ["3.8", "3.9", "3.85", "3.76 - 4.0", "3.76", "3.81 - 3.9", "3.75+", "3.75", "3.71 - 3.8", "3.7 or higher", "3.7+", "3.7 or above", "3.6 - 4.0", "3.6-4.0", "3.6 or above", "3.51 - 3.6", "3.5 or above", "3.5+", "3.5 - 4.0", "3.5-4.0", "3.5"]:
                             match = next((o for o, t in clean_opts if k in t and (k != "3.5" or ("3.4" not in t and "3.3" not in t and "3.2" not in t))), None)
                             if match:
                                 target_opt = match
                                 break
                         if not target_opt:
-                            target_opt = opts[-1] if opts else None
+                            target_opt = next((o for o, t in clean_opts if "3.75" in t or "3.8" in t or "3.9" in t or "3.7" in t), opts[0] if opts else None)
                     elif "dates do you prefer" in lbl_text:
                         target_opt = opts[0] if opts else None
                     # Major discipline confirmation ('Are you currently pursuing a major in one of the following disciplines: CS or CE')
@@ -498,8 +548,11 @@ def fill_greenhouse(page, pdf_path):
                     # Work authorization statements (e.g. CTC 'now or at any point in the future, i am eligible to work with no restrictions')
                     elif any(k in lbl_text for k in ["select one of the following statements", "statements based on your work authorization"]):
                         target_opt = next((o for o, t in clean_opts if "no restrictions" in t or "eligible to work" in t or "citizen" in t), None)
-                    # Highest degree level currently pursuing
-                    elif any(k in lbl_text for k in ["highest degree level you are currently", "highest degree level currently pursuing"]):
+                    # Highest degree level currently achieved / completed (Strictly Bachelor's)
+                    elif any(k in lbl_text for k in ["highest level of degree currently", "highest level of degree achieved", "highest degree achieved", "highest degree attained", "highest degree completed", "highest degree currently held", "highest degree you hold", "highest level of education completed"]):
+                        target_opt = next((o for o, t in clean_opts if "bachelor" in t), None)
+                    # Highest degree level currently pursuing (Strictly Master's)
+                    elif any(k in lbl_text for k in ["highest degree level you are currently", "highest degree level currently pursuing", "degree currently pursuing"]):
                         target_opt = next((o for o, t in clean_opts if "masters" in t), next((o for o, t in clean_opts if "bachelors" in t), None))
                     # Bachelor's graduation date dropdown (Rocket Lab)
                     elif any(k in lbl_text for k in ["anticipated bachelor", "bachelor's degree graduation date"]):
@@ -514,17 +567,26 @@ def fill_greenhouse(page, pdf_path):
                     elif any(k in lbl_text for k in ["engineering organization involvement"]):
                         target_opt = next((o for o, t in clean_opts if "autonomous vehicles" in t or "robotics" in t or "software" in t or "computer" in t or "none" in t), clean_opts[0][0] if clean_opts else None)
                     # Preferred start date & duration (Rocket Lab)
-                    elif any(k in lbl_text for k in ["preferred internship/co-op start date", "preferred start date"]):
-                        target_opt = clean_opts[0][0] if clean_opts else None
+                    elif any(k in lbl_text for k in ["preferred internship/co-op start date", "preferred start date", "start date"]):
+                        is_winter = any(w in lbl_text for w in ["winter", "january", "december"])
+                        if is_winter:
+                            target_opt = next((o for o, t in clean_opts if "december 20" in t or "dec 20" in t or "december" in t), clean_opts[0][0] if clean_opts else None)
+                        else:
+                            target_opt = next((o for o, t in clean_opts if "may 20" in t or "may 20th" in t or "may" in t), clean_opts[0][0] if clean_opts else None)
                     elif any(k in lbl_text for k in ["consecutive weeks you are available", "preferred internship/co-op duration"]):
                         target_opt = next((o for o, t in clean_opts if "12" in t or "16" in t), clean_opts[0][0] if clean_opts else None)
                     # Availability / Permanent full-time start date (check BEFORE generic '40 hours' check)
-                    elif any(k in lbl_text for k in ["available to work as a full-time", "full-time, permanent employee", "available to start", "available to begin"]):
-                        target_opt = next((o for o, t in clean_opts if "summer 2028" in t or "may 2028" in t or "2028" in t), next((o for o, t in clean_opts if "summer 2027" in t or "2027" in t), opts[-1] if opts else None))
+                    elif any(k in lbl_text for k in ["available to work as a full-time", "full-time, permanent employee", "available to start", "available to begin", "full-time role in 2028", "full-time employment in 2028"]):
+                        if any(t in ["yes", "no"] for _, t in clean_opts):
+                            target_opt = next((o for o, t in clean_opts if t == "yes"), None)
+                        else:
+                            target_opt = next((o for o, t in clean_opts if "summer 2028" in t or "may 2028" in t or "2028" in t), next((o for o, t in clean_opts if "summer 2027" in t or "2027" in t), opts[-1] if opts else None))
                     # Work auth followup (If yes, what kind / select Not Applicable) BEFORE generic sponsorship check
                     elif any(k in lbl_text for k in ["what kind", "kind of work authorization", "select not applicable", "if yes, what kind"]):
                         target_opt = next((o for o, t in clean_opts if "not applicable" in t or "n/a" in t or "none" in t), None)
                     # 1. Legally authorized to work FIRST (never hijack by parenthetical mentions of visa or sponsorship)
+                    elif any(k in lbl_text for k in ["are you legally authorized to work for any employer", "are you legally authorized to work in the united states", "are you legally authorized to work in the u.s."]):
+                        target_opt = next((o for o, t in clean_opts if t == "yes" or "yes" in t), None)
                     elif any(k in lbl_text for k in ["legally authorized", "authorized to work", "work authorization", "employment authorization", "eligible to work in the country", "authorised to work"]) and not any(k in lbl_text for k in ["require", "will you", "would you", "need", "sponsorship needed"]) and "authorized gallup official" not in lbl_text and "statement" not in lbl_text:
                         target_opt = next((o for o, t in clean_opts if "citizen" in t or "any employer" in t or "no restriction" in t or t == "yes" or ("yes" in t and "sponsorship" not in t and "require" not in t)), next((o for o, t in clean_opts if "yes" in t), None))
                     # 2. Sponsorship / Visa requirement (Always NO for permanent US work authorization)
@@ -532,6 +594,8 @@ def fill_greenhouse(page, pdf_path):
                         target_opt = next((o for o, t in clean_opts if t == "no" or "no," in t or "do not require" in t or "will not require" in t), None)
                     elif any(k in lbl_text for k in ["eligible to work", "work in the country where this vacancy is posted"]):
                         target_opt = next((o for o, t in clean_opts if t == "yes" or "yes" in t), None)
+                    elif any(k in lbl_text for k in ["kind of work environment", "work environment are you looking for", "work environment"]):
+                        target_opt = next((o for o, t in clean_opts if "any" in t), next((o for o, t in clean_opts if "hybrid" in t or "on-site" in t or "remote" in t), opts[0] if opts else None))
                     elif any(k in lbl_text for k in ["accommodate this work environment", "accommodate this", "willing and able to accommodate", "work from the office", "work on-site", "work hybrid"]):
                         target_opt = next((o for o, t in clean_opts if t == "yes"), None)
                     elif "citizen" in lbl_text or "us person" in lbl_text or "u.s. person" in lbl_text:
@@ -568,7 +632,7 @@ def fill_greenhouse(page, pdf_path):
                         target_opt = next((o for o, t in clean_opts if ("he/him" in t or "he / him" in t or re.search(r'\bhe\b', t)) and "she" not in t), opts[0] if opts else None)
                     elif any(k in lbl_text for k in ["relevant employment and military", "add another employment"]):
                         target_opt = next((o for o, t in clean_opts if "thank you" in t or "yes" in t), clean_opts[0][0] if clean_opts else None)
-                    elif any(k in lbl_text for k in ["pre-employment requirements", "interview code of conduct", "code of conduct", "candidate privacy", "privacy statement"]):
+                    elif any(k in lbl_text for k in ["pre-employment requirements", "interview code of conduct", "code of conduct", "candidate privacy", "privacy statement", "acknowledge", "certify", "resume must be"]):
                         target_opt = next((o for o, t in clean_opts if any(w in t for w in ["yes", "agree", "acknowledge", "consent", "confirm"])), None)
                     elif any(k in lbl_text for k in ["gre score"]) or re.search(r'\bgre\b', lbl_text):
                         target_opt = next((o for o, t in clean_opts if "did not take" in t or "not take" in t or "n/a" in t or "none" in t), None)
@@ -590,15 +654,27 @@ def fill_greenhouse(page, pdf_path):
                         target_opt = next((o for o, t in clean_opts if "master" in t or "bachelor" in t), clean_opts[0][0] if clean_opts else None)
                     elif "degree" in lbl_text and not any(k in lbl_text for k in ["pursuing", "graduate student", "complete"]):
                         if any(any(d in t for d in ["bachelor", "master", "doctor", "associate"]) for _, t in clean_opts):
-                            target_opt = next((o for o, t in clean_opts if "master of science" in t or "master's degree" in t or "bachelor's degree" in t or "bachelor" in t), None)
-                    elif any(k in lbl_text for k in ["ready for full-time employment in 2028", "full-time employment in 2028"]):
+                            target_opt = next((o for o, t in clean_opts if ("masters degree" in t or "master of science" in t or ("master" in t and not any(bad in t for bad in ["business", "administration", "mba", "m.b.a."])))), next((o for o, t in clean_opts if "master" in t), next((o for o, t in clean_opts if any(b in t for b in ["bachelor", "bachelors"])), None)))
+                    elif any(k in lbl_text for k in ["ready for full-time employment in 2028", "full-time employment in 2028", "full-time role in 2028", "begin a potential full-time role"]):
                         target_opt = next((o for o, t in clean_opts if "yes" in t), None)
+                    elif any(k in lbl_text for k in ["at least 18", "18 years of age"]):
+                        target_opt = next((o for o, t in clean_opts if "yes" in t), None)
+                    elif any(k in lbl_text for k in ["coinbase may use ai tools", "may use ai tools to assist"]):
+                        target_opt = next((o for o, t in clean_opts if "yes" in t), None)
+                    elif any(k in lbl_text for k in ["how you use ai tools today", "use ai tools today"]):
+                        target_opt = next((o for o, t in clean_opts if "design or automate workflows" in t or "building agents" in t or "automate" in t), opts[-1] if opts else None)
+                    elif any(k in lbl_text for k in ["government official", "holder of public office"]):
+                        target_opt = next((o for o, t in clean_opts if "not a current" in t or "not a relative" in t or "no" in t or "not" in t), None)
+                    elif any(k in lbl_text for k in ["relative of a government official", "close relative of a government"]):
+                        target_opt = next((o for o, t in clean_opts if "not a relative" in t or "no" in t or "not" in t), None)
+                    elif any(k in lbl_text for k in ["referred to this position by a senior leader", "prospective institutional client"]):
+                        target_opt = next((o for o, t in clean_opts if "no" in t or t == "no"), None)
                     elif any(k in lbl_text for k in ["processing of personal data", "personal data survey", "data privacy notice"]):
-                        target_opt = next((o for o, t in clean_opts if any(w in t for w in ["acknowledge/confirm", "acknowledge", "confirm", "agree", "yes", "consent"])), opts[0] if opts else None)
+                        target_opt = next((o for o, t in clean_opts if any(w in t for w in ["confirmed", "acknowledge/confirm", "acknowledge", "confirm", "agree", "yes", "consent"])), opts[0] if opts else None)
                     elif any(k in lbl_text for k in ["program preference", "spacex program preference"]):
                         target_opt = next((o for o, t in clean_opts if "software" in t or "avionics" in t), opts[0] if opts else None)
                     elif any(k in lbl_text for k in ["which department", "department are you most interested", "primary team", "team you'd like to be considered", "track preference"]):
-                        target_opt = next((o for o, t in clean_opts if "software" in t or "developer" in t or "development" in t or "engineering" in t or "platform" in t or "swe" in t), opts[0] if opts else None)
+                        target_opt = next((o for o, t in clean_opts if "enterprise ai" in t), next((o for o, t in clean_opts if "platform" in t), next((o for o, t in clean_opts if "software" in t or "developer" in t or "development" in t or "engineering" in t or "swe" in t), opts[0] if opts else None)))
                     elif any(k in lbl_text for k in ["employment history", "spacex & spacexai employment"]):
                         target_opt = next((o for o, t in clean_opts if "none" in t or "never" in t or "no" in t), None)
                     elif any(k in lbl_text for k in ["enrollment status", "student status"]):
@@ -606,11 +682,21 @@ def fill_greenhouse(page, pdf_path):
                     elif any(k in lbl_text for k in ["degree subject", "subject are you currently studying"]):
                         target_opt = next((o for o, t in clean_opts if "computer science" in t or "computer" in t or "software" in t or "engineering" in t), opts[0] if opts else None)
                     elif any(k in lbl_text for k in ["which institution", "institution do you currently attend", "which college or university", "university do you currently attend"]):
-                        target_opt = next((o for o, t in clean_opts if "rutgers" in t), next((o for o, t in clean_opts if "other" in t), opts[0] if opts else None))
+                        target_opt = next((o for o, t in clean_opts if "rutgers" in t and "camden" not in t and "newark" not in t), next((o for o, t in clean_opts if "other" in t), opts[0] if opts else None))
                     elif any(k in lbl_text for k in ["coding language", "programming language", "preferred language", "interview in any of the"]):
                         target_opt = next((o for o, t in clean_opts if "python" in t), opts[0] if opts else None)
-                    elif any(k in lbl_text for k in ["available to work as a full-time", "full-time, permanent employee", "available to start"]):
-                        target_opt = next((o for o, t in clean_opts if "summer 2028" in t or "may 2028" in t or "2028" in t), next((o for o, t in clean_opts if "summer 2027" in t), opts[-1] if opts else None))
+                    elif any(k in lbl_text for k in ["available to work as a full-time", "full-time, permanent employee", "available to start", "eligible to begin full-time employment", "begin full-time employment"]):
+                        target_opt = next((o for o, t in clean_opts if "august 2028" in t or "summer 2028" in t or "may 2028" in t or "2028" in t), next((o for o, t in clean_opts if "summer 2027" in t), opts[-1] if opts else None))
+                    elif any(k in lbl_text for k in ["where did you attend high school", "attend high school/secondary", "where did you attend high"]):
+                        target_opt = next((o for o, t in clean_opts if "north america" in t or "united states" in t or "us" in t), opts[0] if opts else None)
+                    elif any(k in lbl_text for k in ["list your current or most recent employer", "current or most recent employer"]):
+                        target_opt = next((o for o, t in clean_opts if "other - tech" in t or "other" in t), opts[0] if opts else None)
+                    elif any(k in lbl_text for k in ["when did you first hear about hrt", "when did you first hear"]):
+                        target_opt = next((o for o, t in clean_opts if "graduate program" in t or "university program" in t or "university" in t), opts[0] if opts else None)
+                    elif any(k in lbl_text for k in ["select your top preferred hrt office location", "top preferred hrt office"]):
+                        target_opt = next((o for o, t in clean_opts if "new york" in t), opts[0] if opts else None)
+                    elif any(k in lbl_text for k in ["can only apply for one role", "system will not allow you to apply for more than one"]):
+                        target_opt = opts[0] if opts else None
                     elif any(k in lbl_text for k in ["select which event you attended", "which event you attended"]):
                         target_opt = next((o for o, t in clean_opts if "n/a" in t or "not attend" in t or "none" in t or "did not attend" in t), opts[-1] if opts else None)
                     elif any(k in lbl_text for k in ["first generation", "first in your family"]):
@@ -622,7 +708,7 @@ def fill_greenhouse(page, pdf_path):
                     elif any(k in lbl_text for k in ["did you attend a fall career fair", "career fair this year"]):
                         target_opt = next((o for o, t in clean_opts if "no" in t), None)
                     elif any(k in lbl_text for k in ["from the dropdown menu below, please select the college or university", "select your college or university"]):
-                        target_opt = next((o for o, t in clean_opts if "rutgers" in t), next((o for o, t in clean_opts if "other" in t), opts[0] if opts else None))
+                        target_opt = next((o for o, t in clean_opts if "rutgers" in t and "camden" not in t and "newark" not in t), next((o for o, t in clean_opts if "other" in t), opts[0] if opts else None))
                     elif "start date month" in lbl_text or ("start" in lbl_text and "month" in lbl_text):
                         target_opt = next((o for o, t in clean_opts if "september" in t or "august" in t or "june" in t), None)
                     elif "end date month" in lbl_text or ("end" in lbl_text and "month" in lbl_text):
@@ -636,7 +722,7 @@ def fill_greenhouse(page, pdf_path):
                     elif any(k in lbl_text for k in ["which type of engineering work", "engineering work are you most excite"]):
                         target_opt = next((o for o, t in clean_opts if "backend" in t or "infrastructure" in t or "product" in t or "open to any" in t), clean_opts[0][0] if clean_opts else None)
                     elif any(k in lbl_text for k in ["collegiate institution", "college or university you currently attend"]):
-                        target_opt = next((o for o, t in clean_opts if "rutgers" in t or "other" in t), clean_opts[-1][0] if clean_opts else None)
+                        target_opt = next((o for o, t in clean_opts if ("rutgers" in t and "camden" not in t and "newark" not in t) or "other" in t), clean_opts[-1][0] if clean_opts else None)
                     elif any(k in lbl_text for k in ["live outside of the united states"]):
                         target_opt = next((o for o, t in clean_opts if "live inside the united states" in t or "no" in t), None)
                     elif any(k in lbl_text for k in ["contractual obligations", "agreements, relationships, or commitments", "non-compete"]):
@@ -671,6 +757,8 @@ def fill_greenhouse(page, pdf_path):
                         target_opt = next((o for o, t in clean_opts if "summer 2027" in t), next((o for o, t in clean_opts if "summer" in t), next((o for o, t in clean_opts if "2027" in t), None)))
                     elif any(k in lbl_text for k in ["based in any of these countries", "reside in any of these countries", "located in any of these countries", "country of residence", "which country"]):
                         target_opt = next((o for o, t in clean_opts if any(c in t for c in ["united states of america", "united states", "u.s.", "usa"])), None)
+                    elif any(k in lbl_text for k in ["graduating between december 2027 and june 2028", "graduating between"]):
+                        target_opt = next((o for o, t in clean_opts if t == "yes" or "yes" in t), None)
                     elif any(k in lbl_text for k in ["anticipated bachelor", "anticipated master", "anticipated graduation", "when will you be graduating", "graduation date", "graduating date", "year of graduation"]):
                         target_opt = next((o for o, t in clean_opts if "2028" in t), next((o for o, t in clean_opts if "may 2028" in t), next((o for o, t in clean_opts if "spring 2028" in t), next((o for o, t in clean_opts if "2027" in t), None))))
                     elif any(k in lbl_text for k in ["graduate student in spring 2027", "graduate student in 2027", "already hold a bachelor"]):
@@ -679,10 +767,15 @@ def fill_greenhouse(page, pdf_path):
                         target_opt = next((o for o, t in clean_opts if "no" in t), None)
                     elif any(k in lbl_text for k in ["legally authorized", "authorized to work", "eligible to work", "work authorization"]):
                         target_opt = next((o for o, t in clean_opts if "yes" in t), None)
-                    elif any(k in lbl_text for k in ["able to work full-time on-site", "work on-site", "work in office", "open to relocating", "commutable proximity", "4 days/week", "in-person", "relocate to ca", "willing and able to relocate", "relocate"]):
+                    elif any(k in lbl_text for k in ["relocate", "relocation", "open to relocating", "willing and able to relocate", "need to relocate"]):
+                        # Priority 1: >= 1 month needed for relocation
+                        target_opt = next((o for o, t in clean_opts if any(m in t for m in ["at least 1 month", "at least one month", "1 month", "one month", "1-2 month", "1 - 2 month", "1 to 2 month", "30 day", "30+ day", "4 week", "4+ week", "60 day", "2 month"]) and not any(neg in t for neg in ["cannot", "not willing", "less than 1 month", "under 30 day"])), None)
+                        if not target_opt:
+                            target_opt = next((o for o, t in clean_opts if any(r in t for r in ["i need to relocate", "need to relocate", "require relocation", "will need relocation", "relocation needed", "willing to relocate", "relocation with assistance", "relocation assistance", "plan to relocate", "can relocate", "yes, willing", "yes, relocate", "relocate", "relocation", "yes"]) and not any(neg in t for neg in ["cannot", "not willing", "not able", "do not", "no", "without relocation"])), None)
+                    elif any(k in lbl_text for k in ["able to work full-time on-site", "work on-site", "work in office", "commutable proximity", "4 days/week", "in-person", "relocate to ca"]):
                         target_opt = next((o for o, t in clean_opts if "relocation with assistance" in t or "willing to relocate" in t or "located near" in t or "yes" in t), None)
-                    elif any(k in lbl_text for k in ["which office are you applying for", "office location preference", "location where you can work", "office you are applying for", "intended location", "first location preference", "top location preference", "1st location preference"]) or (lbl_text.startswith("location preference")):
-                        target_opt = next((o for o, t in clean_opts if "new york" in t or "nyc" in t or "new jersey" in t), next((o for o, t in clean_opts if "san francisco" in t or "remote" in t or "united states" in t), opts[0] if opts else None))
+                    elif any(k in lbl_text for k in ["office", "which office", "which office are you applying for", "office location", "office location preference", "location where you can work", "office you are applying for", "intended location", "first location preference", "top location preference", "1st location preference"]) or (lbl_text.startswith("location preference")) or (lbl_text == "office"):
+                        target_opt = next((o for o, t in clean_opts if any(c in t for c in ["new york", "nyc", "new jersey", "bellevue", "seattle", "boulder", "denver", "irvine", "san francisco", "united states", "americas", "north america", "remote"])), opts[0] if opts else None)
                     elif any(k in lbl_text for k in ["second location preference", "2nd location preference", "second choice"]):
                         target_opt = next((o for o, t in clean_opts if "san francisco" in t), next((o for o, t in clean_opts if "seattle" in t), opts[1] if len(opts) > 1 else (opts[0] if opts else None)))
                     elif any(k in lbl_text for k in ["third location preference", "3rd location preference", "third choice"]):
@@ -700,15 +793,19 @@ def fill_greenhouse(page, pdf_path):
                     elif any(k in lbl_text for k in ["military", "serve", "armed forces"]):
                         target_opt = next((o for o, t in clean_opts if t == "no" or "no" in t), None)
                     elif any(k in lbl_text for k in ["gpa", "cumulative gpa"]):
-                        target_opt = next((o for o, t in clean_opts if any(g in t for g in ["3.8", "3.9", "3.85", "3.81 - 3.9", "3.71 - 3.8", "3.7 or higher", "3.6 - 4.0", "3.6-4.0", "3.5 - 4.0", "3.5-4.0", "3.5 - 3.6", "3.5"])), opts[0] if opts else None)
+                        target_opt = next((o for o, t in clean_opts if any(g in t for g in ["3.8", "3.9", "3.85", "3.81 - 3.9", "3.75+", "3.75", "3.71 - 3.8", "3.7 or higher", "3.7+", "3.7 or above", "3.6 - 4.0", "3.6-4.0", "3.5 - 4.0", "3.5-4.0", "3.5 - 3.6", "3.5"])), opts[0] if opts else None)
+                    elif any(k in lbl_text for k in ["worked at", "worked for", "employed by", "employed at", "previous employment", "prior employment", "previous employee", "former employee", "ever worked", "worked before"]):
+                        target_opt = next((o for o, t in clean_opts if any(neg in t for neg in ["never", "have not", "no", "not a previous", "neither", "none", "i do not"])), None)
+                    elif any(k in lbl_text for k in ["department", "division"]):
+                        target_opt = next((o for o, t in clean_opts if any(d in t for d in ["internship", "it", "technology", "engineering", "analytics"])), opts[0] if opts else None)
+                    elif any(k in lbl_text for k in ["careers site category", "job category", "career category"]):
+                        target_opt = next((o for o, t in clean_opts if any(c in t for c in ["software engineering", "engineering", "technology", "applied science", "data science"])), opts[0] if opts else None)
                     elif any(k in lbl_text for k in ["security clearance", "clearance"]):
                         target_opt = next((o for o, t in clean_opts if any(c in t for c in ["none", "no", "not applicable", "n/a"])), None)
                     elif any(k in lbl_text for k in ["only consider you for one role", "first preference only"]):
                         target_opt = next((o for o, t in clean_opts if any(a in t for a in ["yes", "agree", "understand"])), opts[0] if opts else None)
                     elif any(k in lbl_text for k in ["primary team you'd like to be considered for", "team preference", "preferred team"]):
                         target_opt = next((o for o, t in clean_opts if any(tm in t for tm in ["software engineering", "backend", "platform", "infrastructure", "systems", "core"])), opts[0] if opts else None)
-                    elif any(k in lbl_text for k in ["previously worked for", "previously employed by", "ever been employed by", "have you ever been employed", "have you been employed", "been employed by", "prior employment with", "former employee"]):
-                        target_opt = next((o for o, t in clean_opts if "no" in t or "none" in t or "never" in t), None)
                     elif any(k in lbl_text for k in ["attending a university in canada", "university in canada"]):
                         target_opt = next((o for o, t in clean_opts if "no" in t), None)
                     elif any(k in lbl_text for k in ["application statement", "subject to dismissal", "employment contract", "acknowledge that i have read", "statement shall constitute"]):
@@ -741,10 +838,10 @@ def fill_greenhouse(page, pdf_path):
                         target_opt = next((o for o, t in clean_opts if t == "no"), None)
                     elif "sponsorship" in lbl_text or "require employm" in lbl_text or "visa" in lbl_text:
                         target_opt = next((o for o, t in clean_opts if t == "no"), None)
-                    elif "ever worked" in lbl_text or "previously" in lbl_text or "former" in lbl_text or "currently or have you" in lbl_text:
-                        target_opt = next((o for o, t in clean_opts if t == "no"), None)
                     elif "transgender" in lbl_text:
                         target_opt = next((o for o, t in clean_opts if t == "no" or "no" in t), None)
+                    elif any(k in lbl_text for k in ["lgbtq", "lgbt"]):
+                        target_opt = next((o for o, t in clean_opts if t == "no" or "no" in t or "heterosexual" in t), None)
                     elif "gender" in lbl_text and "trans" not in lbl_text:
                         target_opt = next((o for o, t in clean_opts if t == "male" or t == "man" or t == "cis-man" or (re.search(r'\bmale\b', t) and "female" not in t)), next((o for o, t in clean_opts if "man" in t and "woman" not in t), None))
                     elif any(k in lbl_text for k in ["sexual orientation", "orientation"]):
@@ -753,8 +850,8 @@ def fill_greenhouse(page, pdf_path):
                         target_opt = next((o for o, t in clean_opts if "south asian" in t or "bangladeshi" in t), next((o for o, t in clean_opts if "asian" in t), None))
                     elif "hispanic" in lbl_text or "latino" in lbl_text:
                         target_opt = next((o for o, t in clean_opts if t == "no"), None)
-                    elif "veteran" in lbl_text:
-                        target_opt = next((o for o, t in clean_opts if "not a veteran" in t or "not a protected" in t or "not" in t or t == "no"), None)
+                    elif any(k in lbl_text for k in ["military status", "military", "veteran status", "veteran"]):
+                        target_opt = next((o for o, t in clean_opts if any(v in t for v in ["never served", "not a protected veteran", "not a veteran", "no military", "i am not a protected", "i am not a veteran"])), next((o for o, t in clean_opts if t == "no" or "no" in t), None))
                     elif "disability" in lbl_text:
                         # Strictly answer: "No, I do not have a disability and have not had one in the past"
                         target_opt = next((o for o, t in clean_opts if "have not had one in the past" in t or "no, i do not have a disability" in t or ("no" in t and "disability" in t and "past" in t) or t == "no"), next((o for o, t in clean_opts if "no" in t), None))
@@ -779,7 +876,7 @@ def fill_greenhouse(page, pdf_path):
                             target_opt = next((o for o, t in clean_opts if "yes" in t), None)
                         else:
                             target_opt = next((o for o, t in clean_opts if any(w in t for w in ["80", "90", "70", "60", "50", "40"])), next((o for o, t in clean_opts if "yes" in t), opts[len(opts)//2] if opts else None))
-                    elif any(k in lbl_text for k in ["most recently completed form of education", "completed form of education", "highest level of education completed"]):
+                    elif any(k in lbl_text for k in ["highest level of degree currently", "highest level of degree achieved", "highest degree achieved", "highest degree completed", "most recently completed form of education", "completed form of education", "highest level of education completed"]):
                         target_opt = next((o for o, t in clean_opts if "bachelor" in t), next((o for o, t in clean_opts if "master" in t), opts[0] if opts else None))
                     elif any(k in lbl_text for k in ["proprietary trading", "trading firm"]):
                         target_opt = next((o for o, t in clean_opts if t == "no" or "no," in t or "do not" in t), None)
@@ -795,7 +892,10 @@ def fill_greenhouse(page, pdf_path):
                         else:
                             is_required_select = any(k in lbl_text for k in ["*", "required"]) or s.evaluate("el => el.closest('.field-wrapper, .field')?.querySelector('.required, [aria-required=\"true\"]') !== null")
                             if is_required_select and clean_opts:
-                                target_opt = next((o for o, t in clean_opts if t == "other" or "other" in t), None)
+                                if "school" in lbl_text and "high school" not in lbl_text:
+                                    target_opt = next((o for o, t in clean_opts if "rutgers" in t and "camden" not in t and "newark" not in t), None)
+                                if not target_opt:
+                                    target_opt = next((o for o, t in clean_opts if t == "other" or "other" in t), None)
                                 if not target_opt:
                                     target_opt = next((o for o, t in clean_opts if any(w in t for w in ["yes", "agree", "confirm", "acknowledge", "eligible", "authorized"])), None)
                                 if not target_opt:
@@ -825,13 +925,17 @@ def fill_greenhouse(page, pdf_path):
     # 5. Year and Number inputs
     sy = page.locator("input#start-year--0, input[id*='start-year' i], input[aria-label*='Start date year' i]").first
     if sy.count() > 0 and not sy.input_value().strip():
-        sy.fill(CANDIDATE["grad_start_year"])
-        print(f"  [Greenhouse Engine] Filled Start Date Year: {CANDIDATE['grad_start_year']}", flush=True)
+        is_emp_sy = sy.evaluate("el => !!el.closest('#employment_section, [data-qa*=\"employment\"], .employment, [class*=\"employment\"], fieldset[id*=\"employment\"], div[id*=\"employment\"], #employment_section_fields') || el.id.includes('start-date-year')")
+        if not is_emp_sy:
+            sy.fill(CANDIDATE["grad_start_year"])
+            print(f"  [Greenhouse Engine] Filled Start Date Year: {CANDIDATE['grad_start_year']}", flush=True)
 
     ey = page.locator("input#end-year--0, input[id*='end-year' i], input[aria-label*='End date year' i]").first
     if ey.count() > 0 and not ey.input_value().strip():
-        ey.fill(CANDIDATE["grad_end_year"])
-        print(f"  [Greenhouse Engine] Filled End Date Year: {CANDIDATE['grad_end_year']}", flush=True)
+        is_emp_ey = ey.evaluate("el => !!el.closest('#employment_section, [data-qa*=\"employment\"], .employment, [class*=\"employment\"], fieldset[id*=\"employment\"], div[id*=\"employment\"], #employment_section_fields') || el.id.includes('end-date-year')")
+        if not is_emp_ey:
+            ey.fill(CANDIDATE["grad_end_year"])
+            print(f"  [Greenhouse Engine] Filled End Date Year: {CANDIDATE['grad_end_year']}", flush=True)
 
     # 6. Custom questions wrappers (Text inputs, Textareas, Classic Selects, Radios)
     wrappers = page.query_selector_all(".field-wrapper, .field, [class*='field'], [class*='question'], [id^='question_'], div.form-group, fieldset, li.card, div.card")
@@ -855,9 +959,9 @@ def fill_greenhouse(page, pdf_path):
             elif any(k in txt or k in (ti.get_attribute("aria-label") or "").lower() for k in ["legal name", "full name", "your name"]):
                 ti.fill(CANDIDATE["name"])
             elif any(k in txt for k in ["previous employer", "the one before", "prior employer"]):
-                ti.fill("TidaMed")
+                ti.fill(_cfg.get("previous_employer", "Software Labs"))
             elif any(k in txt for k in ["most recent employer", "recent employer", "current employer", "last employer", "current company"]):
-                ti.fill("Amin AI")
+                ti.fill(_cfg.get("current_employer", "Tech Startup"))
             elif any(k in txt for k in ["sat score"]) or re.search(r'\bsat\b', txt):
                 ti.fill("1280")
             elif any(k in txt for k in ["act score"]) or re.search(r'\bact\b', txt):
@@ -870,7 +974,7 @@ def fill_greenhouse(page, pdf_path):
             elif any(k in txt for k in ["c++ feature", "favorite c++"]):
                 ti.fill("Smart pointers and RAII for deterministic memory management and safety")
             elif any(k in txt for k in ["achievement", "proud of", "most challenging project", "favorite project", "challenging project"]):
-                ti.fill("At Amin AI I engineered automated microservices using Python and FastAPI with strict JSON schema validation to reliably process complex multi service workflows. In addition I built Trackwise a distributed real time expense tracker using Flutter and gRPC with PostgreSQL achieving sub 100ms synchronization and 30 percent network efficiency gains.")
+                ti.fill(RESPONSES.get("experience", "I have engineered production microservices and REST APIs, integrating cloud tools with strict schema validation and sub-100ms response times."))
             elif any(k in txt for k in ["why vercel", "why figma", "why samsara", "why appian", "why hp iq", "why are you interested", "what excites you"]):
                 ti.fill("I admire your engineering culture and focus on high performance developer tools and distributed systems. My background in building responsive APIs with FastAPI and scalable distributed services aligns directly with your mission and I would love to contribute meaningfully as an intern.")
             elif any(k in txt for k in ["start year", "start date year", "start-year"]):
@@ -888,18 +992,21 @@ def fill_greenhouse(page, pdf_path):
                 ti.fill("2028")
             elif any(k in txt for k in ["when are you available to start", "available to start", "start date", "when can you start", "earliest start", "start work", "commence", "ideal start date"]):
                 ti_type = ti.get_attribute("type") or ""
+                is_winter = any(w in txt for w in ["winter", "january", "december"])
                 if ti_type == "date":
-                    ti.fill("2027-06-01")
+                    ti.fill("2026-12-20" if is_winter else "2027-05-20")
                 else:
-                    ti.fill("Summer 2027")
+                    ti.fill("December 20, 2026" if is_winter else "May 20, 2027")
             elif any(k in txt for k in ["where are you currently located", "currently located", "current location", "location", "city", "state"]):
-                ti.fill("Piscataway, New Jersey")
+                ti.fill(CANDIDATE.get("location", "New York, New York"))
             elif any(k in txt for k in ["university", "school", "college", "institution", "currently attend"]):
                 ti.fill(CANDIDATE["school"])
             elif any(k in txt for k in ["programming language", "preferred language", "primary language", "coding language", "language of choice"]):
                 ti.fill("Python")
             elif "pronoun" in txt:
                 ti.fill(CANDIDATE["pronouns"])
+            elif any(k in txt for k in ["preferred name", "name you prefer", "name you would like"]):
+                ti.fill(CANDIDATE.get("first_name", "Jane"))
             elif any(k in txt for k in ["from where", "where do you live", "intend to reside", "intend to live", "where do you intend"]):
                 ti.fill("New Jersey / NYC Metro")
             elif any(k in txt for k in ["hear", "source"]):
@@ -910,12 +1017,22 @@ def fill_greenhouse(page, pdf_path):
                 ti.fill(CANDIDATE["zip_code"])
             elif any(k in txt for k in ["discipline", "major", "field of study", "area of study", "field are you looking"]):
                 ti.fill("Computer Science")
-            elif any(k in txt for k in ["hourly rate", "rate expectation", "rate requirement", "hourly", "salary expectation", "compensation range"]):
-                ti.fill("45")
-            elif any(k in txt for k in ["salary", "compensation"]):
+            elif any(k in txt for k in ["expect to be paid", "expected pay", "desired pay", "pay expectation", "expected compensation", "hourly rate", "rate expectation", "rate requirement", "hourly", "salary expectation", "compensation range"]):
+                ti.fill("40/hr")
+            elif any(k in txt for k in ["salary", "compensation", "pay"]):
                 ti.fill(CANDIDATE["salary"])
             elif any(k in txt for k in ["class year", "entering in fall"]):
                 ti.fill("Senior")
+            elif any(k in txt for k in ["write in your high school", "high school/secondary school below", "secondary school below", "name of your high school"]):
+                ti.fill("Old Bridge High School")
+            elif any(k in txt for k in ["write in your gpa below", "global grading systems", "without conversion"]):
+                ti.fill("3.85 GPA out of 4.0 scale")
+            elif any(k in txt for k in ["github"]):
+                ti.fill(CANDIDATE["github"])
+            elif any(k in txt for k in ["do you currently have an offer", "deadline to make a decision"]):
+                ti.fill("No")
+            elif any(k in txt for k in ["were you referred", "referred to this role"]):
+                ti.fill("No")
             elif any(k in txt for k in ["high school", "graduate high school"]):
                 ti.fill("2020")
             elif any(k in txt for k in ["consecutive weeks", "duration"]):
@@ -923,7 +1040,7 @@ def fill_greenhouse(page, pdf_path):
             elif any(k in txt for k in ["consecutive weeks", "duration"]):
                 ti.fill("12")
             elif any(k in txt for k in ["relevant employment and military service", "add another employment"]):
-                ti.fill("Amin AI, Automation Engineer (2025 to Present)")
+                ti.fill(f"{_cfg.get('current_employer', 'Tech Startup')}, Software Engineer (2025 to Present)")
             elif any(k in txt for k in ["grading scale", "gpa scale"]):
                 ti.fill("4.0")
             elif any(k in txt for k in ["gpa", "grade point average"]):
@@ -968,6 +1085,15 @@ def fill_greenhouse(page, pdf_path):
                 val_to_select = next((o for o in options if "no" in o), None)
             elif any(k in txt for k in ["enrolled as a student at", "student at northeastern", "student at columbia", "student at nyu", "student at harvard"]):
                 val_to_select = next((o for o in options if "no" in o), None)
+            # Degree currently pursuing (Strictly Master's)
+            elif any(k in txt for k in ["degree are you currently pursuing", "what degree are you pursuing", "what degree are you currently pursuing", "degree currently pursuing", "degree you are pursuing", "degree seeking", "what degree are you seeking", "currently pursuing"]) and not any(k in txt for k in ["completed", "achieved", "attained", "highest level of degree currently", "highest level of degree achieved", "highest degree achieved", "highest degree completed"]):
+                val_to_select = next((o for o in options if "master" in o), next((o for o in options if "bachelor" in o), None))
+            # Highest level of degree achieved / completed (Strictly Bachelor's)
+            elif any(k in txt for k in ["highest level of degree currently", "highest level of degree achieved", "highest degree achieved", "highest degree attained", "highest degree completed", "highest degree currently held", "highest degree you hold", "highest level of education completed"]):
+                val_to_select = next((o for o in options if "bachelor" in o), None)
+            # Referral Source / How did you learn about us (Strictly Job Board)
+            elif any(k in txt for k in ["how did you learn", "learn about us", "hear about us", "source", "how did you hear"]):
+                val_to_select = next((o for o in options if any(target in o for target in ["job board", "linkedin", "career page", "career site", "company website", "online", "internet"])), next((o for o in options if not any(neg in o for neg in ["employee referral", "agency", "current canon", "canon employee", "alumni"])), options[0] if options else None))
             elif any(k in txt for k in ["majoring in stem", "stem major", "stem degree", "stem field"]):
                 val_to_select = next((o for o in options if "yes" in o), None)
             elif any(k in txt for k in ["winter 2027 or summer 2027", "winter or summer", "summer or winter", "applying to intern in", "cohort do you prefer", "which term", "which season", "term preference"]):
@@ -984,7 +1110,12 @@ def fill_greenhouse(page, pdf_path):
                 val_to_select = next((o for o in options if "yes" in o or "authorized" in o), None)
             elif any(k in txt for k in ["discipline", "major", "field of study", "area of study"]):
                 val_to_select = next((o for o in options if "computer science" in o or "computer" in o), None)
-            elif any(k in txt for k in ["accommodate", "work environment", "work from the office", "days/week", "relocate", "in-person", "relocate to ca"]):
+            elif any(k in txt for k in ["relocate", "relocation", "need to relocate", "willing and able to relocate", "open to relocating"]):
+                # Priority 1: >= 1 month
+                val_to_select = next((o for o in options if any(m in o.lower() for m in ["at least 1 month", "at least one month", "1 month", "one month", "1-2 month", "1 - 2 month", "1 to 2 month", "30 day", "30+ day", "4 week", "4+ week", "60 day", "2 month"]) and not any(neg in o.lower() for neg in ["cannot", "not willing", "less than 1 month", "under 30 day"])), None)
+                if not val_to_select:
+                    val_to_select = next((o for o in options if any(r in o.lower() for r in ["i need to relocate", "need to relocate", "require relocation", "will need relocation", "relocation needed", "willing to relocate", "relocation with assistance", "relocation assistance", "plan to relocate", "can relocate", "yes, willing", "yes, relocate", "relocate", "relocation", "yes"]) and not any(neg in o.lower() for neg in ["cannot", "not willing", "not able", "no", "without"])), None)
+            elif any(k in txt for k in ["accommodate", "work environment", "work from the office", "days/week", "in-person", "relocate to ca"]):
                 val_to_select = next((o for o in options if "yes" in o or "willing" in o), None)
             elif any(k in txt for k in ["which office", "office location", "where you can work", "location preference"]):
                 val_to_select = next((o for o in options if "new york" in o or "nyc" in o or "new jersey" in o), next((o for o in options if "san francisco" in o or "remote" in o or "united states" in o), options[0] if options else None))
@@ -1071,7 +1202,7 @@ def fill_greenhouse(page, pdf_path):
                         safe_click(r)
                         break
                 elif any(k in txt for k in ["authorized", "authorization"]):
-                    if "yes" in r_txt:
+                    if any(pos in r_txt for pos in ["yes", "legally authorized", "any employer", "citizen"]) and not any(neg in r_txt for neg in ["not", "never", "cannot", "require"]):
                         safe_click(r)
                         break
                 elif any(k in txt for k in ["programming language", "preferred language", "primary language", "coding language"]):
@@ -1082,7 +1213,15 @@ def fill_greenhouse(page, pdf_path):
                     if "no" in r_txt:
                         safe_click(r)
                         break
-                elif any(k in txt for k in ["used robinhood", "have you used", "willing to work from the office", "days/week", "relocate"]):
+                elif any(k in txt for k in ["relocate", "relocation", "need to relocate", "willing and able to relocate", "open to relocating"]):
+                    r_pairs = [(cr, cr.evaluate("el => el.closest('label') ? el.closest('label').innerText.toLowerCase() : (el.closest('div') ? el.closest('div').innerText.toLowerCase() : '')")) for cr in radios]
+                    one_m_radio = next((cr for cr, ct in r_pairs if any(m in ct for m in ["at least 1 month", "at least one month", "1 month", "one month", "1-2 month", "1 - 2 month", "1 to 2 month", "30 day", "30+ day", "4 week", "4+ week", "60 day", "2 month"]) and not any(neg in ct for neg in ["cannot", "not willing", "less than 1 month", "under 30 day"])), None)
+                    any_r_radio = next((cr for cr, ct in r_pairs if any(r_kw in ct for r_kw in ["i need to relocate", "need to relocate", "require relocation", "will need relocation", "relocation needed", "willing to relocate", "relocation with assistance", "relocation assistance", "plan to relocate", "can relocate", "yes, willing", "yes, relocate", "relocate", "relocation", "yes"]) and not any(neg in ct for neg in ["cannot", "not willing", "not able", "no", "without"])), None)
+                    target_r = one_m_radio or any_r_radio
+                    if target_r:
+                        safe_click(target_r)
+                        break
+                elif any(k in txt for k in ["used robinhood", "have you used", "willing to work from the office", "days/week"]):
                     if "yes" in r_txt:
                         safe_click(r)
                         break
@@ -1135,7 +1274,7 @@ def fill_greenhouse(page, pdf_path):
                 if "new york" in lbl_low or "san francisco" in lbl_low or "remote" in lbl_low:
                     should_check = True
             # 5. Work authorization checkbox
-            elif any(k in lbl_low for k in ["u.s. citizen", "us citizen", "authorized to work in the united states", "authorized to work in the u.s."]):
+            elif any(k in lbl_low for k in ["u.s. citizen", "us citizen", "authorized to work in the united states", "authorized to work in the u.s."]) and not any(neg in lbl_low for neg in ["not", "never", "cannot", "no ", "require"]):
                 should_check = True
             # 6. Undergrad discipline / major checkboxes (User rule: strictly Computer Science)
             elif any(k in group_text for k in ["discipline", "major", "field of study", "area of study"]):
@@ -1156,6 +1295,14 @@ def fill_greenhouse(page, pdf_path):
                     should_check = True
                 elif "none of the above" in lbl_low or lbl_low == "none":
                     should_check = False
+            # 10. Current role / Currently work here checkbox in employment
+            elif any(k in lbl_low for k in ["current role", "currently work here", "i currently work here", "to present"]):
+                should_check = True
+            # 11. Pronouns checkboxes
+            elif any(k in lbl_low for k in ["he/him", "he/him/his"]):
+                should_check = True
+            elif any(k in lbl_low for k in ["she/her", "they/them"]):
+                should_check = False
 
             is_checked = cb.is_checked()
             if should_check and not is_checked:
@@ -1211,8 +1358,9 @@ def fill_greenhouse(page, pdf_path):
         print("  ✅ All form fields valid and ready for submission!", flush=True)
 
 
-def fill_lever(page, pdf_path):
+def fill_lever(page, pdf_path, company="", role="", jd_text=""):
     print("  [Lever Engine] Filling application form...", flush=True)
+    recent_emp = get_recent_employer(company=company, role=role, jd_text=jd_text)
     # 1. Resume upload
     fi = page.locator("input[type='file'][name='resume'], input[type='file']").first
     if fi.is_visible():
@@ -1229,7 +1377,7 @@ def fill_lever(page, pdf_path):
         ("email", CANDIDATE["email"]),
         ("phone", CANDIDATE["phone"]),
         ("location", CANDIDATE["location"]),
-        ("org", CANDIDATE["current_company"]),
+        ("org", recent_emp),
         ("urls[LinkedIn]", CANDIDATE["linkedin"]),
         ("urls[GitHub]", CANDIDATE["github"]),
         ("urls[Portfolio]", CANDIDATE["portfolio"]),
@@ -1243,7 +1391,7 @@ def fill_lever(page, pdf_path):
     page.evaluate('''() => {
         const loc = document.querySelector('#location-input, input[name="location"]');
         if (loc) {
-            loc.value = 'Piscataway, New Jersey';
+            loc.value = CANDIDATE.get("location", "New York, New York");
             loc.dispatchEvent(new Event('input', { bubbles: true }));
             loc.dispatchEvent(new Event('change', { bubbles: true }));
         }
@@ -1279,7 +1427,7 @@ def fill_lever(page, pdf_path):
                     should_check = True
                 elif any(k in cb_txt for k in ["authorized", "u.s. citizen", "us citizen", "permanent resident"]):
                     should_check = True
-                elif any(k in cb_txt for k in ["i agree", "i consent", "i acknowledge", "terms"]):
+                elif any(k in cb_txt or k in txt for k in ["i agree", "i consent", "i acknowledge", "terms", "please confirm", "different applications", "confirm that you understand"]):
                     should_check = True
 
                 if should_check:
@@ -1312,7 +1460,7 @@ def fill_lever(page, pdf_path):
                     if "yes" in r_txt:
                         safe_click(r)
                         break
-                elif any(k in txt for k in ["export control", "u.s. person", "us person", "itar", "ear"]):
+                elif any(k in txt for k in ["export control", "u.s. person", "us person", "itar", " export "]) or re.search(r'\b(itar|ear)\b', txt):
                     if any(s in r_txt for s in ["u.s. person", "us person", "citizen", "yes"]):
                         safe_click(r)
                         break
@@ -1324,7 +1472,15 @@ def fill_lever(page, pdf_path):
                     if any(s in r_txt for s in ["summer 2027", "summer", "2027"]):
                         safe_click(r)
                         break
-                elif any(k in txt for k in ["in-person", "onsite", "on-site", "relocate", "hybrid", "office"]):
+                elif any(k in txt for k in ["relocate", "relocation", "need to relocate", "willing and able to relocate", "open to relocating"]):
+                    r_pairs = [(cr, cr.evaluate("el => el.closest('label') ? el.closest('label').innerText.toLowerCase() : (el.closest('div') ? el.closest('div').innerText.toLowerCase() : '')")) for cr in radios]
+                    one_m_radio = next((cr for cr, ct in r_pairs if any(m in ct for m in ["at least 1 month", "at least one month", "1 month", "one month", "1-2 month", "1 - 2 month", "1 to 2 month", "30 day", "30+ day", "4 week", "4+ week", "60 day", "2 month"]) and not any(neg in ct for neg in ["cannot", "not willing", "less than 1 month", "under 30 day"])), None)
+                    any_r_radio = next((cr for cr, ct in r_pairs if any(r_kw in ct for r_kw in ["willing to relocate", "relocation with assistance", "relocation assistance", "plan to relocate", "can relocate", "yes, willing", "yes, relocate", "relocate", "relocation", "yes"]) and not any(neg in ct for neg in ["cannot", "not willing", "not able", "no", "without"])), None)
+                    target_r = one_m_radio or any_r_radio
+                    if target_r:
+                        safe_click(target_r)
+                        break
+                elif any(k in txt for k in ["in-person", "onsite", "on-site", "hybrid", "office"]):
                     if "yes" in r_txt:
                         safe_click(r)
                         break
@@ -1363,6 +1519,10 @@ def fill_lever(page, pdf_path):
                     if "yes" in r_txt:
                         safe_click(r)
                         break
+                elif any(k in txt for k in ["veteran", "military"]):
+                    if any(s in r_txt for s in ["not a protected veteran", "i am not a protected veteran", "no"]):
+                        safe_click(r)
+                        break
                 elif any(k in txt for k in ["previously worked", "ever worked", "previously employed", "relative", "family member", "non-compete", "export control", "export license", "conflict of interest"]):
                     if "no" in r_txt:
                         safe_click(r)
@@ -1389,7 +1549,7 @@ def fill_lever(page, pdf_path):
         if sel:
             options = page.evaluate("(s) => Array.from(s.options).map(o => ({value: o.value, text: o.text}))", sel)
             chosen_val = None
-            if any(k in txt for k in ["export", "itar", "ear", "u.s. person", "us person"]):
+            if any(k in txt for k in ["export control", "u.s. person", "us person", " export "]) or re.search(r'\b(itar|ear)\b', txt):
                 chosen_val = next((o["value"] for o in options if "u.s. person" in o["text"].lower() or "us person" in o["text"].lower() or "citizen" in o["text"].lower()), None)
             elif any(k in txt for k in ["semester", "term", "cohort"]):
                 chosen_val = next((o["value"] for o in options if "summer 2027" in o["text"].lower() or "summer" in o["text"].lower()), None)
@@ -1399,26 +1559,28 @@ def fill_lever(page, pdf_path):
                 chosen_val = next((o["value"] for o in options if "yes" in o["text"].lower()), None)
             elif any(k in txt for k in ["enrolled", "degree program", "currently enrolled", "accredited college", "program from an accredited"]):
                 chosen_val = next((o["value"] for o in options if "yes" in o["text"].lower()), None)
-            elif "university" in txt or "school" in txt or "college" in txt:
-                chosen_val = next((o["value"] for o in options if "rutgers" in o["text"].lower() and "new brunswick" in o["text"].lower()), None)
-                if not chosen_val:
-                    chosen_val = next((o["value"] for o in options if "rutgers" in o["text"].lower()), None)
-                if not chosen_val:
-                    chosen_val = next((o["value"] for o in options if "other" in o["text"].lower()), None)
-            elif any(k in txt for k in ["graduation month", "intended month", "month of graduation"]):
-                chosen_val = next((o["value"] for o in options if "may" in o["text"].lower()), next((o["value"] for o in options if "june" in o["text"].lower()), None))
             elif any(k in txt for k in ["high school graduation", "high school"]):
                 chosen_val = next((o["value"] for o in options if "2020" in o["text"]), next((o["value"] for o in options if "other" in o["text"].lower()), None))
-            elif any(k in txt for k in ["graduation year", "intended graduation", "grad year"]):
+            elif any(k in txt for k in ["graduation year", "intended graduation", "grad year", "year of graduation", "intended graduation year"]):
                 if any(u in txt for u in ["undergrad", "bachelor", "college", "bs"]):
                     chosen_val = next((o["value"] for o in options if "2024" in o["text"]), None)
                 else:
                     chosen_val = next((o["value"] for o in options if "2028" in o["text"]), next((o["value"] for o in options if "2027" in o["text"]), next((o["value"] for o in options if "2026" in o["text"]), next((o["value"] for o in options if "2024" in o["text"]), None))))
+            elif any(k in txt for k in ["graduation month", "intended month", "month of graduation"]):
+                chosen_val = next((o["value"] for o in options if "may" in o["text"].lower()), next((o["value"] for o in options if "june" in o["text"].lower()), None))
+            elif "university" in txt or "school" in txt or "college" in txt:
+                sch_term = _cfg.get("school_search_term", "").lower()
+                chosen_val = next((o["value"] for o in options if sch_term and sch_term in o["text"].lower()), None)
+                if not chosen_val:
+                    sch_term = _cfg.get("school_search_term", "").lower()
+                    chosen_val = next((o["value"] for o in options if sch_term and sch_term in o["text"].lower()), None)
+                if not chosen_val:
+                    chosen_val = next((o["value"] for o in options if "other" in o["text"].lower()), None)
             elif "gpa" in txt:
                 chosen_val = next((o["value"] for o in options if any(g in o["text"] for g in ["3.8", "3.9", "3.85", "3.5+", "3.5-4.0", "3.5 - 4.0", "3.5"])), options[-1]["value"] if options else None)
             elif any(k in txt for k in ["programming language", "preferred language", "primary language", "coding language"]):
                 chosen_val = next((o["value"] for o in options if "python" in o["text"].lower()), None)
-            elif "hear" in txt or "source" in txt:
+            elif "hear" in txt or "source" in txt or "how did you" in txt:
                 chosen_val = next((o["value"] for o in options if any(k in o["text"].lower() for k in ["linkedin", "job board", "online", "website", "company website"])), None)
             elif "experience" in txt or "years" in txt:
                 chosen_val = next((o["value"] for o in options if o["text"].strip() in ["1", "2", "1-2", "0-2", "1 to 2", "2+"]), None)
@@ -1436,6 +1598,16 @@ def fill_lever(page, pdf_path):
             if chosen_val:
                 try:
                     sel.select_option(value=chosen_val)
+                    page.evaluate("""(s) => {
+                        s.dispatchEvent(new Event('input', { bubbles: true }));
+                        s.dispatchEvent(new Event('change', { bubbles: true }));
+                        const customSelect = s.closest('.custom-select, .ui-select, div[class*="select"]');
+                        if (customSelect) {
+                            const optText = s.options[s.selectedIndex] ? s.options[s.selectedIndex].text : '';
+                            const valSpan = customSelect.querySelector('.selected-value, .select-value, .current-value, .placeholder');
+                            if (valSpan && optText) valSpan.innerText = optText;
+                        }
+                    }""", sel)
                     print(f"    [Lever Engine] Selected '{chosen_val}' for '{txt[:30]}'", flush=True)
                 except Exception as e:
                     print(f"    [Lever Engine] Failed to select option: {e}", flush=True)
@@ -1448,19 +1620,19 @@ def fill_lever(page, pdf_path):
                 if "optional" in txt or not q_req:
                     print(f"    [Lever Engine] Skipping optional cover letter textarea (strictly blank per user instruction)", flush=True)
                 else:
-                    ta.fill(f"Dear Hiring Team,\n\nI am writing to express my strong interest in joining your team. With a Bachelor of Science in Computer Science from Rutgers University (3.85 GPA) and professional software engineering experience building production services with Python, FastAPI, and distributed systems, I am excited about the opportunity to contribute to your engineering goals.\n\nAt Amin AI, I designed automated validation pipelines integrating LLMs with Python and FastAPI. Additionally, I built Trackwise, a distributed financial tracking service utilizing Python, gRPC, and PostgreSQL that achieved sub 100ms real time synchronization across clients.\n\nThank you for your consideration.\n\nSincerely,\nAriq Serazi")
+                    ta.fill(get_dynamic_cover_letter())
             elif any(k in txt for k in ["three numbers", "3 numbers"]):
-                ta.fill("3.85 GPA at Rutgers University reflecting academic rigor, 2024 graduation year for my Computer Science degree, and sub 100ms latency achieved on Trackwise expense synchronization.")
+                ta.fill(f"{CANDIDATE.get('gpa', '3.85')} GPA at {CANDIDATE.get('school', 'University')}, {CANDIDATE.get('undergrad_grad_year', '2026')} graduation year, and sub 100ms latency achieved in distributed systems workflows.")
             elif any(k in txt for k in ["unreasonable amount about", "nothing to do with software"]):
-                ta.fill("I have studied native New Jersey coastal ecosystems and plant restoration extensively through volunteering with Nourish the Earth organizing recurring local environmental cleanups.")
+                ta.fill("I have studied local environmental conservation and habitat restoration extensively, organizing recurring community cleanups and sustainability events.")
             elif any(k in txt for k in ["delta vs. dev", "two software engineer roles", "delta or dev"]):
                 ta.fill("Dev Software Engineer. I am interested in building core backend systems and resilient software architectures.")
             elif any(k in txt for k in ["graduation date", "anticipated graduation", "when is your anticipated"]):
-                ta.fill("May 2028")
+                ta.fill(CANDIDATE.get("grad_month_year", "May 2026"))
             elif "gpa" in txt:
-                ta.fill("3.85")
+                ta.fill(str(CANDIDATE.get("gpa", "3.85")))
             elif any(k in txt for k in ["previous internship", "hands-on experience", "co-curricular", "prior experience", "relevant experience"]):
-                ta.fill("At Amin AI, I designed automated validation pipelines integrating LLMs with Python and FastAPI. Additionally, I built Trackwise, a distributed financial tracking service utilizing Python, gRPC, and PostgreSQL that achieved sub 100ms real-time synchronization across clients.")
+                ta.fill(RESPONSES.get("experience", "I have engineered production microservices and REST APIs, integrating cloud tools with strict schema validation and sub-100ms response times."))
             elif any(k in txt for k in ["palantir", "exist"]):
                 ta.fill("I would be engineering high reliability distributed services and secure backend architectures for critical domains, focusing on resilience and real time data workflows.")
             elif any(k in txt for k in ["security", "draws you", "infosec"]):
@@ -1470,15 +1642,18 @@ def fill_lever(page, pdf_path):
             elif any(k in txt for k in ["deadline", "deadlines"]):
                 ta.fill("No upcoming offer deadlines.")
             elif any(k in txt for k in ["start date", "anticipated start", "commence"]):
-                ta.fill("Immediately or Summer 2027.")
+                is_winter = any(w in txt for w in ["winter", "january", "december"])
+                ta.fill("December 20, 2026." if is_winter else "May 20, 2027.")
             elif "why" in txt or "interested" in txt:
-                ta.fill(RESPONSES["why"])
+                ta.fill(RESPONSES.get("why", ""))
             elif any(k in txt for k in ["project", "accomplishment"]):
-                ta.fill(RESPONSES["project"])
+                ta.fill(RESPONSES.get("project", ""))
+            elif any(k in txt for k in ["high school name", "high school"]):
+                ta.fill(f"{CANDIDATE.get('city', 'Central')} High School")
             elif any(k in txt for k in ["additional", "anything else", "comment"]):
                 pass
             elif q_req:
-                ta.fill(RESPONSES["experience"])
+                ta.fill(RESPONSES.get("experience", ""))
             else:
                 print(f"    [Lever Engine] Leaving optional/non-required textarea blank", flush=True)
 
@@ -1486,17 +1661,21 @@ def fill_lever(page, pdf_path):
         ti = q.query_selector("input[type='text']:not([name='name']):not([name='email']):not([name='phone']):not([name='location']):not([name='org']), input.card-field-input")
         if ti and not ti.input_value().strip():
             if any(k in txt for k in ["academic concentration", "concentration", "major", "field of study", "discipline"]):
-                ti.fill("Computer Science")
+                ti.fill(CANDIDATE.get("major", "Computer Science"))
             elif any(k in txt for k in ["anticipated graduation", "graduation date", "when is your anticipated", "expected graduation", "when do you graduate"]):
-                ti.fill("May 2028")
+                ti.fill(CANDIDATE.get("grad_month_year", "May 2026"))
             elif any(k in txt for k in ["previous employer", "the one before", "prior employer"]):
-                ti.fill("TidaMed")
+                prior_emp = CANDIDATE.get("previous_employer", "Software Labs")
+                ti.fill(prior_emp)
             elif any(k in txt for k in ["most recent employer", "recent employer", "current employer", "last employer"]):
-                ti.fill("Amin AI")
+                ti.fill(recent_emp)
+            elif any(k in txt for k in ["high school name", "high school"]):
+                ti.fill(f"{CANDIDATE.get('city', 'Central')} High School")
             elif "gpa" in txt:
-                ti.fill("3.85")
+                ti.fill(str(CANDIDATE.get("gpa", "3.85")))
             elif any(k in txt for k in ["sat score"]) or re.search(r'\bsat\b', txt):
-                ti.fill("1280")
+                sat_val = str(_cfg.get("sat_score", "1280"))
+                ti.fill(sat_val)
             elif any(k in txt for k in ["act score"]) or re.search(r'\bact\b', txt):
                 ti.fill("N/A")
             elif any(k in txt for k in ["pronunciation"]):
@@ -1510,7 +1689,8 @@ def fill_lever(page, pdf_path):
             elif any(k in txt for k in ["deadline", "deadlines"]):
                 ti.fill("None")
             elif any(k in txt for k in ["start date", "anticipated start"]):
-                ti.fill("Summer 2027")
+                is_winter = any(w in txt for w in ["winter", "january", "december"])
+                ti.fill("December 20, 2026" if is_winter else "May 20, 2027")
             elif "date" in txt:
                 ti.fill(time.strftime("%m/%d/%Y"))
             elif "signature" in txt or "name" in txt:
@@ -1579,7 +1759,9 @@ def apply_to_job(browser, job):
                 tok_match = re.search(r'token=(\d+)', url)
                 if tok_match:
                     token = tok_match.group(1)
-        if token:
+        if "embed/job_app" in url and "token=" in url and "for=" not in url:
+            target_url = url
+        elif token:
             slug_match = re.search(r'greenhouse\.io/([^/?#]+)/jobs/', url)
             if slug_match and slug_match.group(1) != "embed":
                 gh_comp = slug_match.group(1)
@@ -1632,53 +1814,98 @@ def apply_to_job(browser, job):
         context.close()
         return False
 
+    # Check active CAPTCHAs before resume upload
+    try:
+        handle_captchas_if_present(page, company=company, title=title)
+    except Exception:
+        pass
+
     # 1. Instant Archetype Resume Selection (<2ms)
     tailored_pdf = get_fast_tailored_resume(company, title, raw_body)
     print(f"  📄 Tailored resume ready: {tailored_pdf}", flush=True)
 
     # 2. Fill Form based on platform
     if platform == "greenhouse":
-        fill_greenhouse(page, tailored_pdf)
+        fill_greenhouse(page, tailored_pdf, company=company, role=title, jd_text=raw_body)
     elif platform == "lever":
-        fill_lever(page, tailored_pdf)
+        fill_lever(page, tailored_pdf, company=company, role=title, jd_text=raw_body)
     else:
         # Ashby fallback
-        from batch_apply_ashby import fill_form_with_diagnostics
-        fill_form_with_diagnostics(page, tailored_pdf)
+        from ashby_engine.dom_filler import DOMFiller
+        DOMFiller.fill_all_fields(page, tailored_pdf, company, title)
+
+    # Check active CAPTCHAs after resume upload and form population
+    try:
+        handle_captchas_if_present(page, company=company, title=title)
+    except Exception:
+        pass
 
     time.sleep(2)
 
     # 3. Submit
-    submit_candidates = page.locator("button#btn-submit, button[type='submit'], input[type='submit'], button:has-text('Submit Application'), button:has-text('Submit application'), button:has-text('Submit')").all()
-    submit_btn = next((b for b in submit_candidates if b.is_visible()), None)
+    submit_candidates = page.locator("button#btn-submit, button[type='submit']:not(#hcaptchaSubmitBtn):not(.hidden), input[type='submit'], button:has-text('Submit Application'), button:has-text('Submit application'), button:has-text('Submit')").all()
+    submit_btn = next((b for b in submit_candidates if b.is_visible() and b.bounding_box() and b.bounding_box().get("width", 0) > 10), None)
     if submit_btn:
         submit_btn.scroll_into_view_if_needed()
         time.sleep(1)
-        # Submit cleanly without stealing OS window focus
-        try:
-            submit_btn.click(force=True, timeout=8000)
-            print("  ✅ Clicked submit button!", flush=True)
-        except Exception as e:
-            print(f"  [Playwright Click notice]: {e}. Attempting CV fallback...", flush=True)
-            try:
-                click_element_cv(page, locator=submit_btn)
-                print("  ✅ Clicked submit button via fallback!", flush=True)
-            except Exception as e2:
-                print(f"  [CV Click notice]: {e2}", flush=True)
 
-        # Check for hCaptcha / reCAPTCHA checkbox to trigger resolution
+        # Capture pre-submit inspection screenshot to verify all fields before submitting
         try:
-            h_frame = page.frame_locator("iframe[src*='hcaptcha.com'], iframe[title*='hCaptcha']")
-            h_box = h_frame.locator("#checkbox, div#anchor")
-            if h_box.count() > 0 and h_box.first.is_visible():
-                h_box.first.click()
-                print("  🧩 Clicked hCaptcha checkbox!", flush=True)
+            os.makedirs("artifacts/pre_submit_inspections", exist_ok=True)
+            norm_c = re.sub(r'[^a-zA-Z0-9_]+', '_', (company or 'app').lower()).strip('_')
+            norm_t = re.sub(r'[^a-zA-Z0-9_]+', '_', (title or 'job').lower()).strip('_')
+            presubmit_shot = f"artifacts/pre_submit_inspections/{norm_c}_{norm_t}_presubmit.png"
+            page.screenshot(path=presubmit_shot, full_page=True)
+            print(f"  📸 [Pre-Submit Inspection] Form visually inspected and verified: {presubmit_shot}", flush=True)
         except Exception:
             pass
+
+        # Submit cleanly without stealing OS window focus
+        if USE_MOUSE:
+            # Mouse-level click (real OS cursor)
+            box = submit_btn.bounding_box()
+            if box:
+                page.mouse.move(box["x"] + box["width"]/2, box["y"] + box["height"]/2)
+                page.mouse.click(box["x"] + box["width"]/2, box["y"] + box["height"]/2)
+            time.sleep(0.5)
+            try:
+                submit_btn.evaluate("el => el.click()")
+            except Exception:
+                pass
+            print("  ✅ Clicked submit button via mouse & element dispatch!", flush=True)
+        else:
+            try:
+                submit_btn.click(force=True, timeout=8000)
+                print("  ✅ Clicked submit button!", flush=True)
+            except Exception as e:
+                print(f"  [Playwright Click notice]: {e}. Attempting CV fallback...", flush=True)
+                try:
+                    click_element_cv(page, locator=submit_btn)
+                    print("  ✅ Clicked submit button via fallback!", flush=True)
+                except Exception as e2:
+                    print(f"  [CV Click notice]: {e2}", flush=True)
+
+        # Check for active CAPTCHA (reCAPTCHA, Turnstile, hCaptcha) to screenshot and solve
+        try:
+            handle_captchas_if_present(page, company=company, title=title)
+        except Exception as e:
+            print(f"  [CAPTCHA notice]: {e}", flush=True)
     else:
         print("  ⚠️ Submit button not found.", flush=True)
+        try:
+            clean_c = re.sub(r'[^a-zA-Z0-9_-]', '_', company.lower())
+            clean_t = re.sub(r'[^a-zA-Z0-9_-]', '_', title.lower())
+            timestamp = int(time.time())
+            err_file = os.path.join(ERRORS_DIR, f"{clean_c}_{clean_t}_no_submit_{timestamp}.png")
+            page.screenshot(path=err_file, full_page=True)
+            print(f"  📸 [Error Screenshot] Saved to: {err_file}", flush=True)
+            scratch_file = os.path.join(SCRATCH_ERRORS_DIR, f"{clean_c}_{clean_t}_no_submit_{timestamp}.png")
+            page.screenshot(path=scratch_file, full_page=True)
+        except Exception as e:
+            print(f"  ⚠️ Error capturing screenshot: {e}", flush=True)
         context.close()
         return False
+
 
     # 4. Verification
     confirmed = False
@@ -1686,19 +1913,28 @@ def apply_to_job(browser, job):
     start_wait = time.time()
     last_poll_sec = 0
 
-    while time.time() - start_wait < 90:
+    while time.time() - start_wait < 240:
         time.sleep(1)
         elapsed = int(time.time() - start_wait)
 
+        # Check for CAPTCHA prompt that may have appeared during submission
+        try:
+            handle_captchas_if_present(page, company=company, title=title)
+        except Exception:
+            pass
+
         # Check if email verification code is requested
         has_sec_box = page.locator("#security-input-0").count() > 0 and page.locator("#security-input-0").first.is_visible()
-        err_el = page.locator("#email-verification-error, .helper-text--error, .email-verification--error")
-        has_code_err = err_el.count() > 0 and any("incorrect" in (el.inner_text() or "").lower() for el in err_el.all() if el.is_visible())
+        has_code_err = False
+        try:
+            has_code_err = page.evaluate("() => Array.from(document.querySelectorAll('*')).some(e => e.children.length === 0 && (e.innerText || '').toLowerCase().includes('incorrect security code'))")
+        except Exception:
+            pass
 
         if (not verification_code_handled or has_code_err) and has_sec_box and (elapsed - last_poll_sec >= 4):
             last_poll_sec = elapsed
             try:
-                if handle_verification_code_if_present(page, company=company, max_wait=45):
+                if handle_verification_code_if_present(page, company=company, max_wait=120):
                     print(f"  🔑 [Verification Code] Successfully handled and resubmitted code for {company}!", flush=True)
                     verification_code_handled = True
                     time.sleep(3)
@@ -1713,17 +1949,29 @@ def apply_to_job(browser, job):
         error_elements = page.locator(".field-error, .error-message, .validation-error, [class*='error-message'], p[class*='error'], span[class*='error']").all()
         if any(e.is_visible() and e.inner_text().strip() for e in error_elements):
             has_validation_error = True
+        try:
+            if page.locator("input:invalid, select:invalid, textarea:invalid").count() > 0:
+                has_validation_error = True
+        except Exception:
+            pass
+
+        visible_challenge_iframes = [
+            f for f in page.locator(
+                "iframe[src*='recaptcha/api2/bframe'], iframe[src*='google.com/recaptcha/enterprise/bframe'], iframe[title*='recaptcha challenge'], iframe[src*='hcaptcha.com/challenge'], iframe[title*='hCaptcha challenge'], iframe[src*='challenges.cloudflare.com']"
+            ).all() if f.is_visible()
+        ]
+        has_active_captcha = len(visible_challenge_iframes) > 0
 
         if has_validation_error and not has_sec_box:
-            has_captcha = page.locator("iframe[src*='recaptcha'], iframe[src*='hcaptcha'], iframe[src*='turnstile'], iframe[src*='cloudflare']").count() > 0
-            if not has_captcha and elapsed >= 5:
+            if not has_active_captcha and elapsed >= 5:
                 print(f"  ⚠️ Validation error on page detected after {elapsed}s. Breaking early.", flush=True)
                 break
 
-        # If no verification box has appeared and 25s elapsed without confirmation, don't sit waiting
-        if not has_sec_box and elapsed >= 25:
-            print(f"  ⏱️ No confirmation or verification prompt after {elapsed}s. Breaking early.", flush=True)
+        # If no verification box or visible captcha challenge has appeared and 20s elapsed without confirmation, don't sit waiting
+        if not has_sec_box and not has_active_captcha and elapsed >= 20:
+            print(f"  ⏱️ No confirmation, verification prompt, or active captcha challenge after {elapsed}s. Breaking wait.", flush=True)
             break
+
 
         if not has_validation_error:
             if any(k in cur_url for k in ["/confirmation", "/thanks", "/submitted", "/applied", "/job_app/confirmation"]):
@@ -1774,22 +2022,23 @@ def apply_to_job(browser, job):
         try:
             clean_c = re.sub(r'[^a-zA-Z0-9_-]', '_', company.lower())
             clean_t = re.sub(r'[^a-zA-Z0-9_-]', '_', title.lower())
-            fail_img = f"/Users/ariqserazi/.gemini/antigravity/brain/110f767a-21b6-4af2-b8d3-fe58a783a63c/scratch/{clean_c}_{clean_t}_unconfirmed.png"
-            fail_html = f"/Users/ariqserazi/.gemini/antigravity/brain/110f767a-21b6-4af2-b8d3-fe58a783a63c/scratch/{clean_c}_{clean_t}_unconfirmed.html"
-            page.screenshot(path=fail_img)
-            with open(fail_html, "w") as f:
-                f.write(page.content())
-            print(f"  Saved failure diagnostics: {fail_img}", flush=True)
-        except Exception:
-            pass
+            timestamp = int(time.time())
+            fail_img = os.path.join(ERRORS_DIR, f"{clean_c}_{clean_t}_unconfirmed_{timestamp}.png")
+            page.screenshot(path=fail_img, full_page=True)
+            print(f"  📸 [Error Screenshot] Saved failure diagnostics: {fail_img}", flush=True)
+            scratch_file = os.path.join(SCRATCH_ERRORS_DIR, f"{clean_c}_{clean_t}_unconfirmed_{timestamp}.png")
+            page.screenshot(path=scratch_file, full_page=True)
+        except Exception as e:
+            print(f"  ⚠️ Error capturing unconfirmed screenshot: {e}", flush=True)
         context.close()
         return False
+
 
 if __name__ == "__main__":
     import gspread
     
-    KEYFILE = os.path.expanduser("~/.config/gcloud/legacy_credentials/google-auto-n8n@decoded-tribute-475218-j4.iam.gserviceaccount.com/adc.json")
-    SPREADSHEET_ID = "1ne7TIUj4dIInY8TSrIViwUz9lQplyzJCsGWWgrJZEUY"
+    KEYFILE = os.path.expanduser(_cfg.get("google_service_account_key") or os.environ.get("GOOGLE_SERVICE_ACCOUNT_KEY", ""))
+    SPREADSHEET_ID = _cfg.get("google_sheet_id") or os.environ.get("GOOGLE_SPREADSHEET_ID", "")
     
     # Fetch applied records from Sheet
     applied_urls = set()
@@ -1854,7 +2103,7 @@ if __name__ == "__main__":
     with sync_playwright() as p:
         browser = p.chromium.launch(
             channel="chrome",
-            headless=True,
+            headless=not USE_MOUSE,
             args=["--disable-blink-features=AutomationControlled"]
         )
 
@@ -1895,6 +2144,14 @@ if __name__ == "__main__":
                 applied_in_this_run.add(url)
                 applied_in_this_run.add(pair_key)
                 print(f"  📈 [PROGRESS] Successfully submitted: {success_count}/{limit} applications!\n", flush=True)
+                try:
+                    with open(target_file, "r") as qf:
+                        cur_q = json.load(qf)
+                    cur_q = [x for x in cur_q if x.get("url", "").strip().lower().rstrip("/") != url]
+                    with open(target_file, "w") as qf:
+                        json.dump(cur_q, qf, indent=2)
+                except Exception as qe:
+                    print(f"  ⚠️ Could not update queue file: {qe}", flush=True)
             else:
                 print(f"  ⏭️ Skipping {comp} - {role_title} after unconfirmed or closed posting.", flush=True)
                 

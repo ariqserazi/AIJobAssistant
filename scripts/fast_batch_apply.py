@@ -31,37 +31,17 @@ LOG_SCRIPT = os.path.expanduser("~/.agents/skills/resume-tailor-swe/scripts/log_
 CONFIRMATIONS_DIR = os.path.expanduser("~/.agents/skills/resume-tailor-swe/artifacts/confirmations")
 os.makedirs(CONFIRMATIONS_DIR, exist_ok=True)
 
-CANDIDATE = {
-    "name": "Ariq Serazi",
-    "first_name": "Ariq",
-    "last_name": "Serazi",
-    "email": "ariq.serazi1@gmail.com",
-    "phone": "732-853-6773",
-    "location": "Piscataway, New Jersey",
-    "city": "Piscataway",
-    "state": "New Jersey",
-    "country": "United States",
-    "current_company": "Amin AI",
-    "current_title": "Software Engineer",
-    "linkedin": "https://linkedin.com/in/ariq-serazi",
-    "github": "https://github.com/ariqserazi",
-    "portfolio": "https://ariqserazi.github.io/",
-    "school": "Rutgers University",
-    "degree": "Bachelor of Science in Computer Science",
-    "gpa": "3.85",
-    "grad_date": "05/2024",
-    "grad_month_year": "May 2024",
-    "salary": "95000",
-    "pronouns": "He/Him"
-}
+try:
+    from config_loader import get_candidate_dict, get_responses_dict
+except ImportError:
+    try:
+        from application_engine.config_loader import get_candidate_dict, get_responses_dict
+    except ImportError:
+        def get_candidate_dict(): return {}
+        def get_responses_dict(): return {}
 
-RESPONSES = {
-    "why": "I am deeply inspired by your team's mission and engineering standards. My background in building high reliability microservices and AI pipelines aligns directly with this role. I want to build robust software that delivers real impact.",
-    "experience": "At Amin AI and TidaMed I engineered production microservices with Python, Node.js, and TypeScript, integrating external APIs with strict JSON validation and sub 100ms response times. I focus heavily on reliability and clean system design.",
-    "project": "I built Trackwise, a distributed financial tracking service utilizing Flutter, gRPC, and PostgreSQL. It achieved sub 100ms real time synchronization, reducing network overhead by 30 percent across distributed clients.",
-    "clearance": "No, but I am a US Citizen eligible for clearance.",
-    "pronunciation": "Ah-reek Seh-rah-zee"
-}
+CANDIDATE = get_candidate_dict()
+RESPONSES = get_responses_dict()
 
 sheet_lock = threading.Lock()
 progress_lock = threading.Lock()
@@ -336,7 +316,8 @@ def fill_lever_fast(page, pdf_path):
                 options = page.evaluate("(s) => Array.from(s.options).map(o => ({value: o.value, text: o.text}))", sel)
                 chosen_val = None
                 if "university" in txt or "school" in txt or "college" in txt:
-                    chosen_val = next((o["value"] for o in options if "rutgers" in o["text"].lower()), None)
+                    sch_term = _cfg.get("school_search_term", "").lower() if "_cfg" in globals() else ""
+                    chosen_val = next((o["value"] for o in options if sch_term and sch_term in o["text"].lower()), None)
                 elif "hear" in txt or "source" in txt:
                     chosen_val = next((o["value"] for o in options if any(k in o["text"].lower() for k in ["linkedin", "job board", "online", "website"])), None)
                 elif "experience" in txt or "years" in txt:
@@ -518,9 +499,14 @@ def run_fast_parallel_batch(target_jobs_path, max_workers=3, limit=20):
 
     # Fetch applied keys from sheet
     import gspread
-    KEYFILE = os.path.expanduser("~/.config/gcloud/legacy_credentials/google-auto-n8n@decoded-tribute-475218-j4.iam.gserviceaccount.com/adc.json")
+    _cfg = load_config() if "load_config" in globals() else {}
+KEYFILE = os.path.expanduser(_cfg.get("google_service_account_key") or os.environ.get("GOOGLE_SERVICE_ACCOUNT_KEY", ""))
     gc = gspread.service_account(KEYFILE)
-    sh = gc.open_by_key("1ne7TIUj4dIInY8TSrIViwUz9lQplyzJCsGWWgrJZEUY")
+    sheet_id = _cfg.get("google_sheet_id") or os.environ.get("GOOGLE_SPREADSHEET_ID", "")
+    if not sheet_id:
+        print("  ℹ️ [Google Sheets] Skipped (no sheet ID configured).")
+        return set(), set()
+    sh = gc.open_by_key(sheet_id)
     ws = sh.sheet1
     rows = ws.get_all_values()
     applied_urls = set(r[5].strip().lower().rstrip("/") for r in rows if len(r) > 5 and r[5].strip())

@@ -75,7 +75,7 @@ When tailoring the resume:
 4. compress or remove weak content
 5. make the resume feel focused rather than broad and scattered
 
-Bullet writing rules
+Bullet writing rules & High-Signal Engineering Impact
 
 Every bullet should be:
 1. specific
@@ -83,9 +83,26 @@ Every bullet should be:
 3. technically credible
 4. human sounding
 5. aligned with the role
+6. outcome-oriented: demonstrating tangible engineering consequences
 
-Preferred bullet pattern:
-action + system or feature + technologies + outcome or impact
+Mandatory Engineering Impact Formula:
+[Strong Action Verb] + [Specific System / Technical Architecture] + [Method / Tool] + [Measurable Result / Functional Consequence]
+
+The 4 Pillars of High-Signal Engineering Impact:
+1. Latency & Performance: Sub-100ms request latency, caching layers, query index optimization, reducing payload sizes.
+2. System Reliability & Fault Tolerance: 99.9% uptime, strict Pydantic/JSON schema validation, eliminating malformed payloads in production, webhook idempotency, isolated Docker runtimes.
+3. Concurrency & Scalability: Asynchronous non-blocking routing, auto-scaling serverless backends, connection pooling preventing pool exhaustion, handling burst traffic without degradation.
+4. Quantifiable Business & Architectural Lift: 25% payment completion lift, 30% payload reduction over JSON via gRPC, zero post-launch payment dropouts.
+
+Strict Truth Preservation:
+- Never invent metrics, percentages, traffic scale, or team sizes.
+- Ground outcomes in canonical candidate achievements or clear functional engineering consequences (e.g. eliminating runtime exceptions, preventing malformed payloads, enforcing ACID compliance).
+
+Typesetting & ATS Format Constraints:
+- Single-column standard ATS layout in LaTeX compiled via tectonic.
+- Strict 1-page ceiling: never spill to page 2.
+- Character budget: Each bullet must be either a tight, punchy 1-line bullet (approx 95–104 characters) or a full 2-line bullet (approx 180–205 characters).
+- Zero hanging orphan words: Avoid bullets that wrap only 1 or 2 trailing words onto a new line.
 
 Good emphasis areas when supported:
 1. backend systems
