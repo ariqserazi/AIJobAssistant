@@ -36,10 +36,10 @@ You MUST NOT submit dummy applications. Instead, immediately pause and provide c
     2. University, Degree/Major, Current GPA, and Expected Graduation Date (Month/Year).
     3. Work Authorization (U.S. Citizen / Permanent Resident? Require visa sponsorship now or in the future?).
     4. Profile Links: LinkedIn, GitHub, Portfolio website (if available).
-    5. Baseline Resume: Ask them to provide the local path to their resume PDF or place it into `references/sample_resume.pdf`.
-    *Once the user provides their answers, automatically generate and save their `config.json` file for them!*
-  - **Option 2 (Self-Service File Edit)**:
-    Tell them: *"You can run `cp config.example.json config.json` in your terminal, fill in your details, and tell me when you're ready!"*
+    5. Workday Password (optional) and preferred primary language (e.g. Python).
+    *Once the user provides their answers, automatically run `python init_setup.py --json '<USER_ANSWERS_JSON>'` to generate `config.json`, `application_profile.md`, compile their resume PDF, and initialize all working directories for them!*
+  - **Option 2 (Terminal Command)**:
+    Tell them: *"You can run `python init_setup.py` in your terminal to launch the interactive setup wizard, and tell me when you're ready!"*
 
 ### 2. Live Job Application Protocol
 When the user asks you to apply to jobs (e.g. "Apply to this job [URL]", "Apply to 10 internships", "Run the application engine"):

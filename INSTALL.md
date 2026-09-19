@@ -25,30 +25,28 @@ playwright install chromium
 
 ---
 
-### Step 3: Configure Your Profile
+### Step 3: Automatically Build Your Candidate Profile
+
+Run the automated setup wizard to generate all local files needed by the application engines:
+
+```bash
+python init_setup.py
+```
+
+The interactive wizard asks a few simple questions in your terminal and automatically builds:
+1. **`config.json`**: Ground truth for application form fillers, auth, and credentials.
+2. **`references/application_profile.md`**: Form bubble reference card, demographics, and compliance preferences.
+3. **`references/base_resume_latex.txt` & PDF**: Baseline ATS single-column LaTeX resume compiled into a ready-to-attach PDF.
+4. **Runtime directories & tracking logs**: Pre-creates tracking folders and empty application logs.
 
 > [!TIP]
 > **Using an AI Agent (Antigravity, Cursor, Claude Code, etc.)?**
-> You don't even need to edit `config.json` manually! Simply ask your agent:
+> You can simply ask your AI agent in chat:
 > *"Help me set up AIJobAssistant for my job search"*
-> The agent will automatically ask you 5 quick questions in chat and generate your `config.json` for you!
-
-
-Copy the template configuration file to `config.json`:
-```bash
-cp config.example.json config.json
-```
-
-Open `config.json` in your favorite editor and enter your details:
-- **Candidate Info**: Name, email, phone number, address, location.
-- **Education**: School name, degree, GPA, start date, projected graduation.
-- **Links**: LinkedIn, GitHub, Portfolio website.
-- **Demographics & Work Authorization**: US citizenship, visa sponsorship requirements, EEO preferences.
-- **Workday Credentials**: Your standard password for Workday application portals.
-- **Google Sheets (Optional)**: If you want to automatically log applications to a Google Sheet, add your `google_sheet_id` and service account keyfile path.
+> The agent will prompt you for your details and run `init_setup.py` programmatically to build all necessary files in seconds!
 
 > [!NOTE]
-> `config.json` is automatically gitignored so your personal information and credentials will **never** be committed or exposed to GitHub.
+> `config.json`, `application_profile.md`, and custom resumes are automatically gitignored so your personal information and credentials will **never** be committed or exposed to GitHub.
 
 ---
 
