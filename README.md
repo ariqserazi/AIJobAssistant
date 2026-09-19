@@ -76,15 +76,31 @@ flowchart TD
 
 ---
 
-## ⚙️ Candidate Profile & Ground Truth Setup
+## ⚙️ Automated Setup & Resume PDF Onboarding
 
-AIJobAssistant uses `references/application_profile.md` to store candidate credentials, work authorization, education, and form rules without tracking personal documents in public version control.
+AIJobAssistant is completely self-building. Instead of manually editing configuration files, you can simply point the initialization engine to your existing **Resume PDF**:
 
-### Candidate Profile Setup
-Copy `references/application_profile.template.md` to `references/application_profile.md` (which is gitignored) and update your work authorization, education, demographics, and personal constraints:
 ```bash
-cp references/application_profile.template.md references/application_profile.md
+python init_setup.py --resume-pdf /path/to/your/resume.pdf
 ```
+
+The engine automatically parses your resume and extracts:
+- **Candidate Contact**: Full Name, Email, Phone Number, City/State location.
+- **Education**: School / University, Degree, Major, GPA, and Graduation Date.
+- **Online Profiles**: LinkedIn, GitHub, and Portfolio URLs.
+- **Technical Focus**: Primary programming language and technical skill set.
+
+From that single PDF, it automatically builds:
+1. **`config.json`**: Ground truth for all application form fillers, pointing directly to your resume PDF.
+2. **`references/application_profile.md`**: Pre-filled with your confirmed facts and ATS bubble preferences.
+3. **`references/base_resume_latex.txt`**: Tailored baseline ATS resume.
+4. **Runtime directories & tracking logs**: Creates all required directories and logs.
+
+> [!TIP]
+> **Using an AI Agent (Antigravity, Cursor, Claude Code, etc.)?**
+> Simply drop your resume PDF into the chat or say:
+> *"Here is my resume: `path/to/resume.pdf` — set up my job search profile."*
+> The AI agent will parse your resume and build all necessary files on your machine in seconds!
 
 ---
 
@@ -92,13 +108,16 @@ cp references/application_profile.template.md references/application_profile.md
 
 ```
 .
+├── init_setup.py                            # Automated candidate environment builder (from Resume PDF)
 ├── SKILL.md                                 # Skill definition & agent instruction manual
 ├── README.md                                # Repository documentation
+├── INSTALL.md                               # Detailed installation & onboarding manual
 ├── .gitignore                               # Clean git ignore for credentials, PII, logs
 │
 ├── application_engine/                      # Application execution engine
 │   ├── parallel_orchestrator.py             # 5-worker parallel launcher
 │   ├── batch_apply_multi_ats.py             # Unified Greenhouse/Lever/Ashby engine
+│   ├── batch_apply_workday.py               # Autonomous Workday external portal runner
 │   ├── batch_apply_ashby.py                 # Dedicated Ashby automation runner
 │   ├── email_verification_helper.py         # Automated Gmail OTP fetcher via ScriptingBridge
 │   ├── fetch_fresh_internships.py           # Daily fresh role discovery & scraper
@@ -114,6 +133,7 @@ cp references/application_profile.template.md references/application_profile.md
 │   └── latex_and_formatting_rules.txt       # ATS single-column LaTeX guidelines
 │
 ├── scripts/                                 # CLI tools & skill helpers
+│   ├── init_setup.py                        # Automated setup wizard mirror
 │   ├── apply_playwright.py                  # Single-job runner
 │   ├── apply_workday.py                     # Workday automation helper
 │   ├── log_application.py                   # Atomic Google Sheets logger
@@ -124,9 +144,9 @@ cp references/application_profile.template.md references/application_profile.md
 
 ---
 
-## 📦 Installation & Setup for Friends
+## 📦 Installation & Setup in 3 Minutes
 
-Setting up AIJobAssistant for your own job search takes less than 3 minutes:
+Setting up AIJobAssistant for your own job search is fast and automated:
 
 1. **Clone the repository**:
    ```bash
@@ -138,13 +158,11 @@ Setting up AIJobAssistant for your own job search takes less than 3 minutes:
    pip install -r requirements.txt
    playwright install chromium
    ```
-3. **Configure your profile**:
+3. **Build your environment from your Resume PDF**:
    ```bash
-   cp config.example.json config.json
+   python init_setup.py --resume-pdf /path/to/your/resume.pdf
    ```
-   Edit `config.json` with your name, email, school, degree, links, and job preferences.
-4. **Add your baseline resume**:
-   Drop your PDF resume into `references/sample_resume.pdf`.
+   *(Or run `python init_setup.py` for interactive prompts, or ask your AI agent in chat).*
 
 For complete details, see [INSTALL.md](INSTALL.md).
 
