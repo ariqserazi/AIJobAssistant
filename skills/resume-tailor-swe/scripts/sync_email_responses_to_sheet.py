@@ -410,9 +410,9 @@ def sync_all():
         idx, row = best_match
         current_status = row[1] if len(row) > 1 else ""
 
-        notes = row[7] if len(row) > 7 else ""
+        curr_assessment_link = row[8] if len(row) > 8 else ""
         needs_update = (current_status != status_category) or (
-            status_category == "Assessment" and "Assessment Link:" not in notes
+            status_category == "Assessment" and (not curr_assessment_link or "Assessment Link:" not in notes)
         )
 
         if needs_update:
@@ -429,14 +429,17 @@ def sync_all():
             else:
                 updates_to_send.append({'range': f'G{idx}', 'values': [['N/A']]})
             
-            assessment_link = ""
-            if status_category == "Assessment" and "Assessment Link:" not in notes:
+            assessment_link = curr_assessment_link
+            if status_category == "Assessment" and not assessment_link:
                 assessment_link = extract_assessment_link_for_item(tab, item)
+            
+            if assessment_link and not curr_assessment_link:
+                updates_to_send.append({'range': f'I{idx}', 'values': [[assessment_link]]})
             
             update_note = f"Status: {status_category} ({item['date']}): {item['subject']}"
             if reason:
                 update_note += f" | Rejection detail: {reason}"
-            if assessment_link:
+            if assessment_link and assessment_link not in notes:
                 update_note += f" | Assessment Link: {assessment_link}"
                 
             if update_note not in notes:

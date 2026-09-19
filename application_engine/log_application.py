@@ -16,14 +16,46 @@ try:
 except ImportError:
     pass
 
-import gspread
+try:
+    from config_loader import load_config
+except ImportError:
+    try:
+        from application_engine.config_loader import load_config
+    except ImportError:
+        def load_config(): return {}
 
-KEYFILE = os.path.expanduser("~/.config/gcloud/legacy_credentials/google-auto-n8n@decoded-tribute-475218-j4.iam.gserviceaccount.com/adc.json")
-SPREADSHEET_ID = "1ne7TIUj4dIInY8TSrIViwUz9lQplyzJCsGWWgrJZEUY"
-TRACKING_MD = os.path.expanduser("~/.agents/skills/resume-tailor-swe/references/application_tracking.md")
+_cfg = load_config()
+
+KEYFILE = os.path.expanduser(_cfg.get("google_service_account_key") or os.environ.get("GOOGLE_SERVICE_ACCOUNT_KEY") or "")
+SPREADSHEET_ID = _cfg.get("google_sheet_id") or os.environ.get("GOOGLE_SPREADSHEET_ID", "")
+
+def get_tracking_md_path() -> Path:
+    """Finds or initializes local application tracking markdown file."""
+    candidates = [
+        Path.cwd() / "references" / "application_tracking.md",
+        Path(__file__).parent.parent.resolve() / "references" / "application_tracking.md",
+        Path.home() / ".agents" / "skills" / "resume-tailor-swe" / "references" / "application_tracking.md"
+    ]
+    for c in candidates:
+        if c.exists():
+            return c
+    p = Path.cwd() / "references" / "application_tracking.md"
+    p.parent.mkdir(parents=True, exist_ok=True)
+    header = """# Job Application Tracker
+
+| Date Applied | Company | Role | Location | Job Link | Resume Used | Status | Notes |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+"""
+    with open(p, "w", encoding="utf-8") as f:
+        f.write(header)
+    return p
+
+TRACKING_MD = str(get_tracking_md_path())
 
 def get_worksheet():
-    if not os.path.exists(KEYFILE):
+    if not SPREADSHEET_ID:
+        raise ValueError("Google Spreadsheet ID is not configured in config.json or environment.")
+    if not KEYFILE or not os.path.exists(KEYFILE):
         raise FileNotFoundError(f"Service account keyfile not found at {KEYFILE}")
     gc = gspread.service_account(filename=KEYFILE)
     sh = gc.open_by_key(SPREADSHEET_ID)
@@ -41,7 +73,14 @@ def find_next_row(ws):
 
 import fcntl
 
-def log_to_google_sheets(company, role, job_link, status="Submitted - Pending Response", notes="", date_str=None, rejection_reason="N/A"):
+def log_to_google_sheets(company, role, job_link, status="Submitted - Pending Response", notes="", date_str=None, rejection_reason="N/A", assessment_link=""):
+    if not SPREADSHEET_ID:
+        print("ℹ️ Google Sheet ID not configured in config.json. Application is tracked locally in references/application_tracking.md.")
+        return None
+    if not KEYFILE or not os.path.exists(KEYFILE):
+        print(f"ℹ️ Google service account key not found. Application is tracked locally in references/application_tracking.md.")
+        return None
+
     lock_path = "/tmp/gspread_sheet_lock.lock"
     with open(lock_path, "w") as lock_file:
         fcntl.flock(lock_file, fcntl.LOCK_EX)
@@ -53,7 +92,7 @@ def log_to_google_sheets(company, role, job_link, status="Submitted - Pending Re
                 now = datetime.datetime.now()
                 date_str = f"{now.month}/{now.day}/{now.year}"
 
-            # Exact 8-column layout:
+            # Exact 9-column layout:
             # Col A: Company Name
             # Col B: Application Status
             # Col C: Role
@@ -62,6 +101,7 @@ def log_to_google_sheets(company, role, job_link, status="Submitted - Pending Re
             # Col F: Link to Job Req
             # Col G: Rejection Reason
             # Col H: Notes
+            # Col I: Assessment Link
             row_values = [
                 company,
                 status,
@@ -70,10 +110,11 @@ def log_to_google_sheets(company, role, job_link, status="Submitted - Pending Re
                 date_str,
                 job_link,
                 rejection_reason,
-                notes
+                notes,
+                assessment_link
             ]
             
-            range_name = f"A{target_row}:H{target_row}"
+            range_name = f"A{target_row}:I{target_row}"
             ws.update(range_name=range_name, values=[row_values])
             print(f"Logged application to Google Sheet row {target_row}: {company} - {role}")
             return target_row

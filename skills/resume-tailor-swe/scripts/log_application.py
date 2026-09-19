@@ -73,7 +73,7 @@ def find_next_row(ws):
 
 import fcntl
 
-def log_to_google_sheets(company, role, job_link, status="Submitted - Pending Response", notes="", date_str=None, rejection_reason="N/A"):
+def log_to_google_sheets(company, role, job_link, status="Submitted - Pending Response", notes="", date_str=None, rejection_reason="N/A", assessment_link=""):
     if not SPREADSHEET_ID:
         print("ℹ️ Google Sheet ID not configured in config.json. Application is tracked locally in references/application_tracking.md.")
         return None
@@ -92,7 +92,7 @@ def log_to_google_sheets(company, role, job_link, status="Submitted - Pending Re
                 now = datetime.datetime.now()
                 date_str = f"{now.month}/{now.day}/{now.year}"
 
-            # Exact 8-column layout:
+            # Exact 9-column layout:
             # Col A: Company Name
             # Col B: Application Status
             # Col C: Role
@@ -101,6 +101,7 @@ def log_to_google_sheets(company, role, job_link, status="Submitted - Pending Re
             # Col F: Link to Job Req
             # Col G: Rejection Reason
             # Col H: Notes
+            # Col I: Assessment Link
             row_values = [
                 company,
                 status,
@@ -109,10 +110,11 @@ def log_to_google_sheets(company, role, job_link, status="Submitted - Pending Re
                 date_str,
                 job_link,
                 rejection_reason,
-                notes
+                notes,
+                assessment_link
             ]
             
-            range_name = f"A{target_row}:H{target_row}"
+            range_name = f"A{target_row}:I{target_row}"
             ws.update(range_name=range_name, values=[row_values])
             print(f"Logged application to Google Sheet row {target_row}: {company} - {role}")
             return target_row

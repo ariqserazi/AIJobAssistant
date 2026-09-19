@@ -29,7 +29,7 @@ This document serves as the canonical project repository for tailoring ATS-compl
 ```
 
 ### Free-Text Application Narrative (Strictly Zero Dashes)
-> "I architected an autonomous browser automation and agentic workflow platform in Python using Playwright and local LLMs. The system coordinates five concurrent headless browser workers using disjoint modulo partitioning and atomic file locking to eliminate race conditions. It integrates a local quantized language model via Ollama for real time schema reasoning with zero API cost, and connects to Google Chrome via macOS ScriptingBridge to capture two factor authentication codes automatically. The platform has verified and executed over one thousand multi step workflows across major enterprise web platforms."
+> "I built a parallel browser automation engine in Python using Playwright to handle high volume web tasks. The system spins up five concurrent Chromium instances, using modulo task partitioning and POSIX file locks so the workers never collide on the same job. For forms with dynamic or custom schemas, it passes the fields to an on device 4B model running in Ollama to solve inputs locally without paying API fees. It also hooks into Chrome through macOS ScriptingBridge to extract 2FA codes silently in the background. The system has completed over one thousand multi step runs across Workday, Greenhouse, and Lever without concurrency bugs."
 
 ---
 
