@@ -7,7 +7,7 @@ This document serves as the canonical project repository for tailoring ATS-compl
 ## Project 1: AIJobAssistant (Autonomous Agentic Workflow & RPA Platform)
 
 * **Repository**: [github.com/ariqserazi/AIJobAssistant](https://github.com/ariqserazi/AIJobAssistant)
-* **Date Range**: Nov 2025 to Present
+* **Date Range**: Nov 2025 – Present
 * **Core Technologies**: Python, Playwright, Chromium, Ollama (`qwen3:4b-instruct`), macOS PyObjC ScriptingBridge, Google Cloud API (`gspread`), LaTeX (`tectonic`), POSIX File Locks (`fcntl`).
 * **Best Fit / Target Roles**:
   * AI / Agentic Systems & LLM Tooling
@@ -35,7 +35,7 @@ This document serves as the canonical project repository for tailoring ATS-compl
 
 ## Project 2: Trackwise (Distributed Real-Time Financial Tracker)
 
-* **Date Range**: Jan 2025 to March 2025
+* **Date Range**: Jan 2025 – March 2025
 * **Core Technologies**: Python, gRPC, Protobuf, PostgreSQL, Docker Compose, Flutter, Dart.
 * **Best Fit / Target Roles**:
   * Distributed Systems & Microservices
@@ -62,7 +62,7 @@ This document serves as the canonical project repository for tailoring ATS-compl
 
 ## Project 3: MediaWiki Bridge API (Structured Knowledge & Agent Tooling)
 
-* **Date Range**: Feb 2026 to Present
+* **Date Range**: Feb 2026 – Present
 * **Core Technologies**: Python, FastAPI, Docker, Pydantic, REST APIs, Model Context Protocol (MCP).
 * **Best Fit / Target Roles**:
   * API Architecture & REST Microservices

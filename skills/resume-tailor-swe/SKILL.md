@@ -42,8 +42,8 @@ You MUST NOT submit dummy applications or use placeholder data. If the user did 
        - Work authorization: U.S. Citizen / require visa sponsorship? (Defaults to US Citizen / No sponsorship).
        - Workday standard account password (optional).
        - AI Form Reasoner:
-         * **Ollama Local AI** (100% Free / 0 Credit Cost: runs locally, installs dependencies automatically)
-         * **Current AI Chat** (Uses this active chat assistant directly: no local models to download)
+         * **Ollama Local AI** (100% Free / 0 Credit Cost — runs locally, installs dependencies automatically)
+         * **Current AI Chat** (Uses this active chat assistant directly — no local models to download)
     *All local files (`config.json`, `application_profile.md`, directories) will be generated automatically!*
   - **Option 2 (Interactive Chat Questions)**:
     If they do not have a PDF ready, ask them for their details in chat and run `python init_setup.py --json '<USER_ANSWERS_JSON>'`.

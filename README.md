@@ -104,7 +104,7 @@ Applications frequently require answering non-standard questions (e.g. behaviora
 > [!TIP]
 > **Using an AI Agent (Antigravity, Cursor, Claude Code, etc.)?**
 > Simply drop your resume PDF into the chat or say:
-> *"Here is my resume: `path/to/resume.pdf`, please set up my job search profile."*
+> *"Here is my resume: `path/to/resume.pdf` — set up my job search profile."*
 > The AI agent will parse your resume and build all necessary files on your machine in seconds!
 
 ---
