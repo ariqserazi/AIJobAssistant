@@ -273,7 +273,7 @@ def build_config_json(base_dir: Path, data: Dict[str, Any], overwrite: bool = Fa
                 c = json.load(f)
             updated = False
             for k, v in data.items():
-                if k not in c or k in ["ai_reasoner", "enable_ollama", "ollama_model", "ollama_endpoint"]:
+                if k not in c or k in ["ai_reasoner", "enable_ollama", "ollama_model", "ollama_endpoint", "google_sheet_id", "google_service_account_key"]:
                     c[k] = v
                     updated = True
             for k, v in DEFAULT_CONFIG_VALUES.items():
@@ -700,6 +700,25 @@ def prompt_interactive() -> Dict[str, Any]:
         # Check and install Ollama dependencies right at the beginning
         setup_ollama()
 
+    print("\n" + "="*76)
+    print("📊 Google Sheets & Application Tracking Setup (Optional)")
+    print("="*76)
+    print("By default, all applications are logged locally to references/application_tracking.md")
+    print("(100% private, offline, zero cloud setup needed).\n")
+    print("You can also connect a Google Sheet to sync submissions across devices.")
+    setup_sheets = input("Would you like to configure Google Sheets tracking now? (y/N) [N]: ").strip().lower()
+    if setup_sheets in ["y", "yes"]:
+        sheet_id = input("  Enter your Google Sheet ID (from sheet URL): ").strip()
+        if sheet_id:
+            data["google_sheet_id"] = sheet_id
+        key_path = input("  Enter path to your Google Cloud Service Account JSON key: ").strip()
+        if key_path:
+            clean_k = clean_file_path(key_path)
+            data["google_service_account_key"] = clean_k
+            print(f"  ✅ Configured Google Sheet: {sheet_id}")
+    else:
+        print("  ✅ Using local markdown tracker at references/application_tracking.md (no cloud setup needed).")
+
     return data
 
 
@@ -710,6 +729,8 @@ def main():
     parser.add_argument("--setup-ollama", "--ollama", dest="setup_ollama", action="store_true", help="Set up Ollama dependencies & model (qwen3:4b-instruct) for 0-credit form solving")
     parser.add_argument("--chat-llm", "--current-ai", dest="chat_llm", action="store_true", help="Use current AI chat assistant instead of installing local Ollama")
     parser.add_argument("--no-ollama", action="store_true", help="Disable Ollama local AI reasoner in configuration")
+    parser.add_argument("--sheet-id", dest="sheet_id", default=None, help="Google Sheet ID for tracking applications")
+    parser.add_argument("--sheet-key", dest="sheet_key", default=None, help="Path to Google Cloud Service Account JSON key")
     parser.add_argument("--target-dir", default=None, help="Directory to initialize (defaults to current working directory)")
     parser.add_argument("--json", dest="json_str", default=None, help="Candidate profile as JSON string")
     parser.add_argument("--file", dest="json_file", default=None, help="Path to JSON file with candidate profile")
@@ -762,6 +783,11 @@ def main():
     elif args.reasoner == "disabled" or args.no_ollama:
         data["ai_reasoner"] = "disabled"
         data["enable_ollama"] = False
+
+    if args.sheet_id:
+        data["google_sheet_id"] = args.sheet_id
+    if args.sheet_key:
+        data["google_service_account_key"] = clean_file_path(args.sheet_key)
 
     run_setup(target_dir, data, overwrite=args.force, compile_pdf=not args.no_tectonic)
 

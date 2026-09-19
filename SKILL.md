@@ -74,6 +74,15 @@ When asked to tailor a resume:
 3. Strictly enforce single-column, 1-page ATS layout with zero hanging orphan lines.
 4. Compile using `tectonic` into PDF and present the result to the user.
 
+### 4. Connecting Google Sheets, Drive & Services
+If the user asks how to connect their Google Sheet, Google Drive, or email tracker:
+1. Explain that confirmed submissions are automatically tracked locally in `references/application_tracking.md` with **zero setup or credentials required**.
+2. If the user wants real-time cloud synchronization to their Google Sheet:
+   - Instruct them to enable **Google Sheets API** and **Google Drive API** in Google Cloud Console.
+   - Instruct them to create a **Service Account**, download the JSON key, and share their spreadsheet with the service account email as **Editor**.
+   - Save their `google_sheet_id` and `google_service_account_key` into `config.json` (or run `python init_setup.py --sheet-id <ID> --sheet-key <PATH>`).
+   - Reference [references/connecting_google_sheets_and_services.md](references/connecting_google_sheets_and_services.md) for full step-by-step guidance.
+
 ---
 
 ## Prime Directive: Preserve Truth Above All Else

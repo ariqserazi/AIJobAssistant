@@ -68,14 +68,107 @@ def _get_or_create_gmail_tab():
     app, tab = _get_chrome_app()
     return tab
 
+def fetch_inbox_messages(max_pages=3):
+    tab = _get_or_create_gmail_tab()
+    if not tab:
+        return []
+    try:
+        tab.executeJavascript_("window.location.hash = '#inbox';")
+    except Exception:
+        pass
+    time.sleep(2.5)
+    
+    all_items = []
+    
+    js_read = """
+    (() => {
+        const rows = Array.from(document.querySelectorAll('tr.zA'));
+        return JSON.stringify(rows.map(r => {
+            const senders = (r.querySelector('.yX') || r.querySelector('.yW') || {}).textContent || '';
+            const subject = (r.querySelector('.bog') || {}).textContent || '';
+            const snippet = (r.querySelector('.y2') || {}).textContent || '';
+            const date = (r.querySelector('.xW') || {}).textContent || '';
+            return { senders, subject, snippet, date };
+        }));
+    })()
+    """
+    
+    js_click_older = """
+    (() => {
+        const el = document.querySelector('div[aria-label="Older"]');
+        if (el && el.getAttribute('aria-disabled') !== 'true') {
+            el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
+            el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
+            el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+            return true;
+        }
+        return false;
+    })()
+    """
+    
+    js_click_newer = """
+    (() => {
+        const el = document.querySelector('div[aria-label="Newer"]');
+        if (el && el.getAttribute('aria-disabled') !== 'true') {
+            el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
+            el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
+            el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+            return true;
+        }
+        return false;
+    })()
+    """
+
+    pages_paginated = 0
+    for page in range(max_pages):
+        try:
+            out = tab.executeJavascript_(js_read)
+            items = json.loads(out)
+            all_items.extend(items)
+        except Exception:
+            break
+            
+        if page < max_pages - 1:
+            advanced = tab.executeJavascript_(js_click_older)
+            if advanced:
+                pages_paginated += 1
+                time.sleep(2.5)
+            else:
+                break
+                
+    # Return to Page 1
+    for _ in range(pages_paginated):
+        tab.executeJavascript_(js_click_newer)
+        time.sleep(1.0)
+        
+    return all_items
+
 def search_gmail(query):
     tab = _get_or_create_gmail_tab()
     if not tab:
         return []
-    encoded = urllib.parse.quote(query)
-    url = f"https://mail.google.com/mail/u/1/#search/{encoded}"
+    # Use Gmail search box or hash
+    js_search = f"""
+    (() => {{
+        const searchInput = document.querySelector('input[aria-label="Search mail"]') || document.querySelector('input[name="q"]');
+        if (searchInput) {{
+            searchInput.value = {json.dumps(query)};
+            const form = searchInput.closest('form');
+            if (form) {{
+                form.dispatchEvent(new Event('submit', {{ bubbles: true, cancelable: true }}));
+            }} else {{
+                searchInput.dispatchEvent(new KeyboardEvent('keydown', {{ key: 'Enter', keyCode: 13, bubbles: true }}));
+            }}
+            return true;
+        }}
+        return false;
+    }})()
+    """
     try:
-        tab.setURL_(url)
+        done = tab.executeJavascript_(js_search)
+        if not done:
+            encoded = urllib.parse.quote(query)
+            tab.setURL_(f"https://mail.google.com/mail/u/1/#search/{encoded}")
     except Exception:
         pass
     time.sleep(3.5)
@@ -84,10 +177,10 @@ def search_gmail(query):
     (() => {
         const rows = Array.from(document.querySelectorAll('tr.zA'));
         return JSON.stringify(rows.map(r => {
-            const senders = (r.querySelector('.yX') || r.querySelector('.yW') || {}).innerText || '';
-            const subject = (r.querySelector('.bog') || {}).innerText || '';
-            const snippet = (r.querySelector('.y2') || {}).innerText || '';
-            const date = (r.querySelector('.xW') || {}).innerText || '';
+            const senders = (r.querySelector('.yX') || r.querySelector('.yW') || {}).textContent || '';
+            const subject = (r.querySelector('.bog') || {}).textContent || '';
+            const snippet = (r.querySelector('.y2') || {}).textContent || '';
+            const date = (r.querySelector('.xW') || {}).textContent || '';
             return { senders, subject, snippet, date };
         }));
     })()
@@ -106,21 +199,23 @@ def get_worksheet():
 def classify_email(email_item):
     text = (email_item['subject'] + " " + email_item['snippet']).lower()
     subject = email_item['subject'].lower()
+    sender = email_item.get('senders', '').lower()
     
+    # 0. Filter out non-application emails, job alerts, digests, newsletters, OTPs
+    if any(al in sender or al in subject for al in ["wellfound", "job alert", "alert", "digest", "newsletter", "linkedin job", "indeed", "recommended", "bytebytego", "ladders"]):
+        return None, ""
+    if "security code" in subject or "verification code" in subject:
+        return None, ""
+        
     # 1. Offer
     if any(k in text for k in ["offer of employment", "congratulations on your offer", "we are excited to extend an offer"]):
         return "Offer", ""
-    
-    # 2. Rejection
-    rejection_indicators = [
-        "not moving forward", "decided not to", "decided to move forward with other",
-        "pursue other candidates", "after careful consideration", "not to move forward",
-        "unfortunately", "will not be moving forward", "unable to offer",
-        "decided to pursue", "not selected", "we have chosen to move forward with"
-    ]
-    if any(k in text for k in rejection_indicators):
-        reason = email_item['snippet'][:100].strip()
-        return "Rejected", reason
+
+    # 2. Filter out generic application confirmations UNLESS explicit rejection
+    ack_phrases = ["thank you for applying", "thank you for your application", "application received", "we received your application", "application confirmed", "you’re in! thanks for applying", "thanks for applying"]
+    is_ack = any(ack in subject for ack in ack_phrases)
+    if is_ack and not any(k in text for k in ["unfortunately", "not moving forward", "unable to offer you", "proceed with other candidates", "not selected"]):
+        return None, ""
 
     # 3. Assessment / Coding Challenge
     assessment_indicators = [
@@ -128,18 +223,22 @@ def classify_email(email_item):
         "coderbyte", "coding challenge", "take-home", "take home"
     ]
     if any(k in text for k in assessment_indicators):
-        return "Assessment", ""
+        if not any(k in text for k in ["not moving forward", "unfortunately", "decided not to"]):
+            return "Assessment", ""
+            
+    # 4. Rejection
+    rejection_indicators = [
+        "not moving forward", "decided not to", "decided to move forward with other",
+        "pursue other candidates", "after careful consideration", "not to move forward",
+        "unfortunately", "will not be moving forward", "unable to offer",
+        "decided to pursue", "not selected", "we have chosen to move forward with",
+        "proceed with other candidates", "more closely align"
+    ]
+    if any(k in text for k in rejection_indicators):
+        reason = email_item['snippet'][:120].strip()
+        return "Rejected", reason
 
-    # Filter out job alerts, newsletters, and digests
-    sender = email_item.get('senders', '').lower()
-    if any(al in sender or al in subject for al in ["wellfound", "job alert", "alert", "digest", "newsletter", "linkedin job", "indeed", "recommended"]):
-        return None, ""
-        
-    # Filter out generic application received acknowledgments
-    if any(ack in subject for ack in ["thank you for applying", "thank you for your application", "application received", "we received your application", "application confirmed"]):
-        return None, ""
-
-    # 4. Interviewing (require affirmative scheduling or interview invite)
+    # 5. Interviewing (require affirmative scheduling or interview invite)
     interview_indicators = [
         "schedule your interview", "schedule an interview", "schedule a call",
         "invitation to interview", "like to invite you to interview", "like to invite you to speak",
@@ -151,8 +250,79 @@ def classify_email(email_item):
 
     return None, ""
 
+def extract_assessment_link_for_item(tab, item):
+    """Safely extract assessment URL by reading the href attribute from the email DOM without clicking or opening the URL."""
+    if not tab:
+        return ""
+    subj = item.get("subject", "")
+    js_open = f"""
+    (() => {{
+        const rows = Array.from(document.querySelectorAll("tr.zA"));
+        for (const r of rows) {{
+            const r_subj = (r.querySelector(".bog") || {{}}).textContent || "";
+            if (r_subj && ({json.dumps(subj)}.includes(r_subj) || r_subj.includes({json.dumps(subj)}))) {{
+                r.dispatchEvent(new MouseEvent("click", {{ bubbles: true, cancelable: true, view: window }}));
+                return true;
+            }}
+        }}
+        return false;
+    }})()
+    """
+    try:
+        opened = tab.executeJavascript_(js_open)
+        if not opened:
+            return ""
+        time.sleep(2.5)
+        
+        js_links = """
+        (() => {
+            const container = document.querySelector(".ii.gt") || document.querySelector(".a3s.aiL") || document.body;
+            const links = Array.from(container.querySelectorAll("a")).map(a => ({
+                text: (a.textContent || '').trim().toLowerCase(),
+                href: a.getAttribute("href") || ""
+            })).filter(l => l.href && !l.href.startsWith("mailto:") && !l.href.startsWith("javascript:"));
+            return JSON.stringify(links);
+        })()
+        """
+        raw_links = tab.executeJavascript_(js_links)
+        tab.executeJavascript_("window.location.hash = '#inbox';")
+        time.sleep(1.0)
+        
+        if not raw_links:
+            return ""
+            
+        links = json.loads(raw_links)
+        assessment_domains = [
+            "ondemandassessment.com", "litmushiring.com", "coderbyte.com",
+            "hackerrank.com", "codesignal.com", "predictiveindex.com",
+            "meritfirst.us", "gallup.com", "testgorilla.com", "codility.com",
+            "hirevue.com", "karat.com", "canditech.io", "criteria.com"
+        ]
+        
+        for l in links:
+            href = l.get("href", "")
+            if any(d in href.lower() for d in assessment_domains):
+                if any(skip in href.lower() for skip in ["prep", "terms", "privacy", "blog", "operating-"]):
+                    continue
+                return href
+                
+        for l in links:
+            text = l.get("text", "")
+            href = l.get("href", "")
+            if any(kw in text for kw in ["start assessment", "take assessment", "complete assessment", "start test", "take test"]):
+                return href
+                
+        return ""
+    except Exception:
+        try:
+            tab.executeJavascript_("window.location.hash = '#inbox';")
+        except Exception:
+            pass
+        return ""
+
 def sync_all():
     print("Scouring Gmail for application responses (Rejections, Interviews, Assessments)...")
+    tab = _get_or_create_gmail_tab()
     ws = get_worksheet()
     all_rows = ws.get_all_values()
     
@@ -164,6 +334,16 @@ def sync_all():
     
     scraped = []
     seen = set()
+    
+    # 1. Fetch current inbox
+    inbox_items = fetch_inbox_messages()
+    for item in inbox_items:
+        key = (item['senders'], item['subject'], item['date'])
+        if key not in seen:
+            seen.add(key)
+            scraped.append(item)
+            
+    # 2. Search queries
     for q in queries:
         items = search_gmail(q)
         for item in items:
@@ -182,38 +362,89 @@ def sync_all():
             
         text = (item['subject'] + " " + item['snippet'] + " " + item['senders']).lower()
         
-        # Match against Google Sheet rows (starting row 2)
+        # Resolve company matches
+        sender_subj = (item['senders'] + " " + item['subject']).lower()
+        candidate_rows = []
+        
         for idx, row in enumerate(all_rows[1:], start=2):
-            company = row[0].lower().strip()
-            role = row[2].lower().strip() if len(row) > 2 else ""
-            current_status = row[1] if len(row) > 1 else ""
-            
-            if not company:
+            c_name = row[0].lower().strip()
+            if not c_name or len(c_name) < 2:
                 continue
+            c_clean = "".join(ch for ch in c_name if ch.isalnum() or ch.isspace()).strip()
+            # Prefer matching in sender or subject
+            if c_name in sender_subj or (c_clean and len(c_clean) > 2 and c_clean in sender_subj):
+                candidate_rows.append((idx, row))
+            elif (c_name in text or (c_clean and len(c_clean) > 2 and c_clean in text)) and any(platform in item['senders'].lower() for platform in ["greenhouse", "lever", "ashby", "workday", "coderbyte", "smartrecruiters", "kayak"]):
+                # ATS platform emails often put company name in snippet
+                candidate_rows.append((idx, row))
                 
-            # Check company match
-            if company in text:
-                # If multiple roles exist for company, check role match if possible
-                if role and len([r for r in all_rows[1:] if r[0].lower().strip() == company]) > 1:
-                    role_words = [w for w in role.split() if len(w) > 3]
-                    if not any(rw in text for rw in role_words):
-                        continue
-                        
-                # Update status if changed
-                if current_status != status_category:
-                    print(f"Staging update for Row {idx} ({row[0]} - {row[2]}): {current_status} -> {status_category}")
-                    updates_to_send.append({'range': f'B{idx}', 'values': [[status_category]]})
-                    if status_category == "Rejected" and reason:
-                        updates_to_send.append({'range': f'G{idx}', 'values': [[reason]]})
-                    
-                    notes = row[7] if len(row) > 7 else ""
-                    update_note = f"Status: {status_category} ({item['date']}): {item['subject']}"
-                    if update_note not in notes:
-                        new_notes = f"{notes} | {update_note}".strip(" |")
-                        updates_to_send.append({'range': f'H{idx}', 'values': [[new_notes]]})
-                    
-                    # Update local row representation so subsequent matches don't re-stage
-                    all_rows[idx - 1][1] = status_category
+        if not candidate_rows:
+            continue
+            
+        # If single candidate row, choose it
+        best_match = None
+        if len(candidate_rows) == 1:
+            best_match = candidate_rows[0]
+        else:
+            # Multi-role company: match on distinctive role words
+            STOP_WORDS = {"intern", "software", "engineer", "engineering", "summer", "2026", "2027", "the", "at", "for", "and", "in", "to", "of", "with", "role", "position", "group", "team", "program"}
+            best_score = 0
+            for idx, r in candidate_rows:
+                r_title = r[2].lower() if len(r) > 2 else ""
+                r_words = [w for w in r_title.replace("/", " ").replace("-", " ").split() if len(w) > 2 and w not in STOP_WORDS]
+                score = sum(1 for w in r_words if w in text)
+                if score > best_score:
+                    best_score = score
+                    best_match = (idx, r)
+            # If no distinctive words matched, only accept if exact role title substring is in text
+            if not best_match or best_score == 0:
+                for idx, r in candidate_rows:
+                    r_title = r[2].lower() if len(r) > 2 else ""
+                    if r_title and r_title in text:
+                        best_match = (idx, r)
+                        break
+
+        if not best_match:
+            continue
+
+        idx, row = best_match
+        current_status = row[1] if len(row) > 1 else ""
+
+        notes = row[7] if len(row) > 7 else ""
+        needs_update = (current_status != status_category) or (
+            status_category == "Assessment" and "Assessment Link:" not in notes
+        )
+
+        if needs_update:
+            print(f"Staging update for Row {idx} ({row[0]} - {row[2]}): {current_status} -> {status_category}")
+            updates_to_send.append({'range': f'B{idx}', 'values': [[status_category]]})
+            if status_category == "Rejected":
+                if any(k in reason.lower() for k in ["position has been filled", "filled this position", "timing did not"]):
+                    dropdown_reason = "Applied Too Late"
+                elif any(k in reason.lower() for k in ["pipeline", "no new applicants"]):
+                    dropdown_reason = "No New Applicants"
+                else:
+                    dropdown_reason = 'Generic "Not A Good Fit"'
+                updates_to_send.append({'range': f'G{idx}', 'values': [[dropdown_reason]]})
+            else:
+                updates_to_send.append({'range': f'G{idx}', 'values': [['N/A']]})
+            
+            assessment_link = ""
+            if status_category == "Assessment" and "Assessment Link:" not in notes:
+                assessment_link = extract_assessment_link_for_item(tab, item)
+            
+            update_note = f"Status: {status_category} ({item['date']}): {item['subject']}"
+            if reason:
+                update_note += f" | Rejection detail: {reason}"
+            if assessment_link:
+                update_note += f" | Assessment Link: {assessment_link}"
+                
+            if update_note not in notes:
+                new_notes = f"{notes} | {update_note}".strip(" |")
+                updates_to_send.append({'range': f'H{idx}', 'values': [[new_notes]]})
+            
+            # Update local representation
+            all_rows[idx - 1][1] = status_category
 
     if updates_to_send:
         print(f"Executing batch update for {len(updates_to_send)} cell updates in single API request...")

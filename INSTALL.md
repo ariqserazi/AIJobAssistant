@@ -81,6 +81,21 @@ You have two options:
 
 ---
 
+### Step 5: (Optional) Connect Google Sheets & Google Drive for Cloud Tracking
+
+By default, every confirmed application is automatically saved locally to `references/application_tracking.md` (requires **zero setup**, 100% offline and private).
+
+If you want live cloud synchronization to your own Google Sheet:
+1. Enable **Google Sheets API** and **Google Drive API** in your Google Cloud Console.
+2. Create a **Service Account**, generate a JSON key file, and share your spreadsheet with the service account email as **Editor**.
+3. Pass your Sheet ID and Key to `init_setup.py`:
+   ```bash
+   python init_setup.py --sheet-id YOUR_SPREADSHEET_ID --sheet-key /path/to/service_account.json
+   ```
+*(For complete step-by-step instructions with screenshots, see [references/connecting_google_sheets_and_services.md](references/connecting_google_sheets_and_services.md).)*
+
+---
+
 ## 🏃 Running the Application Engines
 
 ### 1. Parallel Multi-ATS Engine (Greenhouse, Lever, Ashby)

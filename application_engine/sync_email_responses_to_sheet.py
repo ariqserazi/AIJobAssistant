@@ -250,8 +250,79 @@ def classify_email(email_item):
 
     return None, ""
 
+def extract_assessment_link_for_item(tab, item):
+    """Safely extract assessment URL by reading the href attribute from the email DOM without clicking or opening the URL."""
+    if not tab:
+        return ""
+    subj = item.get("subject", "")
+    js_open = f"""
+    (() => {{
+        const rows = Array.from(document.querySelectorAll("tr.zA"));
+        for (const r of rows) {{
+            const r_subj = (r.querySelector(".bog") || {{}}).textContent || "";
+            if (r_subj && ({json.dumps(subj)}.includes(r_subj) || r_subj.includes({json.dumps(subj)}))) {{
+                r.dispatchEvent(new MouseEvent("click", {{ bubbles: true, cancelable: true, view: window }}));
+                return true;
+            }}
+        }}
+        return false;
+    }})()
+    """
+    try:
+        opened = tab.executeJavascript_(js_open)
+        if not opened:
+            return ""
+        time.sleep(2.5)
+        
+        js_links = """
+        (() => {
+            const container = document.querySelector(".ii.gt") || document.querySelector(".a3s.aiL") || document.body;
+            const links = Array.from(container.querySelectorAll("a")).map(a => ({
+                text: (a.textContent || '').trim().toLowerCase(),
+                href: a.getAttribute("href") || ""
+            })).filter(l => l.href && !l.href.startsWith("mailto:") && !l.href.startsWith("javascript:"));
+            return JSON.stringify(links);
+        })()
+        """
+        raw_links = tab.executeJavascript_(js_links)
+        tab.executeJavascript_("window.location.hash = '#inbox';")
+        time.sleep(1.0)
+        
+        if not raw_links:
+            return ""
+            
+        links = json.loads(raw_links)
+        assessment_domains = [
+            "ondemandassessment.com", "litmushiring.com", "coderbyte.com",
+            "hackerrank.com", "codesignal.com", "predictiveindex.com",
+            "meritfirst.us", "gallup.com", "testgorilla.com", "codility.com",
+            "hirevue.com", "karat.com", "canditech.io", "criteria.com"
+        ]
+        
+        for l in links:
+            href = l.get("href", "")
+            if any(d in href.lower() for d in assessment_domains):
+                if any(skip in href.lower() for skip in ["prep", "terms", "privacy", "blog", "operating-"]):
+                    continue
+                return href
+                
+        for l in links:
+            text = l.get("text", "")
+            href = l.get("href", "")
+            if any(kw in text for kw in ["start assessment", "take assessment", "complete assessment", "start test", "take test"]):
+                return href
+                
+        return ""
+    except Exception:
+        try:
+            tab.executeJavascript_("window.location.hash = '#inbox';")
+        except Exception:
+            pass
+        return ""
+
 def sync_all():
     print("Scouring Gmail for application responses (Rejections, Interviews, Assessments)...")
+    tab = _get_or_create_gmail_tab()
     ws = get_worksheet()
     all_rows = ws.get_all_values()
     
@@ -339,7 +410,12 @@ def sync_all():
         idx, row = best_match
         current_status = row[1] if len(row) > 1 else ""
 
-        if current_status != status_category:
+        notes = row[7] if len(row) > 7 else ""
+        needs_update = (current_status != status_category) or (
+            status_category == "Assessment" and "Assessment Link:" not in notes
+        )
+
+        if needs_update:
             print(f"Staging update for Row {idx} ({row[0]} - {row[2]}): {current_status} -> {status_category}")
             updates_to_send.append({'range': f'B{idx}', 'values': [[status_category]]})
             if status_category == "Rejected":
@@ -353,10 +429,16 @@ def sync_all():
             else:
                 updates_to_send.append({'range': f'G{idx}', 'values': [['N/A']]})
             
-            notes = row[7] if len(row) > 7 else ""
+            assessment_link = ""
+            if status_category == "Assessment" and "Assessment Link:" not in notes:
+                assessment_link = extract_assessment_link_for_item(tab, item)
+            
             update_note = f"Status: {status_category} ({item['date']}): {item['subject']}"
             if reason:
                 update_note += f" | Rejection detail: {reason}"
+            if assessment_link:
+                update_note += f" | Assessment Link: {assessment_link}"
+                
             if update_note not in notes:
                 new_notes = f"{notes} | {update_note}".strip(" |")
                 updates_to_send.append({'range': f'H{idx}', 'values': [[new_notes]]})
