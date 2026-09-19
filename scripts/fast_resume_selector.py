@@ -41,6 +41,23 @@ def get_fast_tailored_resume(company: str, role: str, jd_text: str = "") -> str:
     fname = f"{cfg.get('first_name', 'Candidate')}_{cfg.get('last_name', 'Resume')}.pdf"
     dest_path = worker_dir / fname
 
+    # Prioritize exact tailored resume matching company and role keywords
+    clean_comp = re.sub(r'[^a-zA-Z0-9]', '_', company.lower())
+    role_words = [w for w in re.sub(r'[^a-zA-Z0-9]', ' ', role.lower()).split() if len(w) > 3 and w not in ["intern", "summer", "engineer", "software"]]
+    # 1. Try matching company + role keywords (sort by best keyword overlap)
+    candidates = [f for f in OUTPUT_DIR.glob("*.pdf") if clean_comp in f.name.lower() and "worker_" not in str(f)]
+    if candidates and role_words:
+        best = max(candidates, key=lambda f: sum(1 for rw in role_words if rw in f.name.lower()))
+        if any(rw in best.name.lower() for rw in role_words):
+            shutil.copyfile(str(best), str(dest_path))
+            print(f"  ⚡ [Fast Resume] Selected exact tailored resume: {best.name} -> {dest_path.name}", flush=True)
+            return str(dest_path)
+    # 2. Match company
+    for f in candidates:
+        shutil.copyfile(str(f), str(dest_path))
+        print(f"  ⚡ [Fast Resume] Selected exact tailored resume: {f.name} -> {dest_path.name}", flush=True)
+        return str(dest_path)
+
     text = f"{role} {jd_text}".lower()
 
     if any(k in text for k in ["java", "jvm", "spring boot", "spring", "android", "kotlin"]):

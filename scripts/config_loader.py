@@ -58,9 +58,9 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "us_person": "Yes",
     "authorized_in_us": "Yes",
     "sponsorship_required": "No",
-    "gender": "Decline to self-identify",
-    "pronouns": "They/Them",
-    "race": "Decline to self-identify",
+    "gender": "Male",
+    "pronouns": "He/Him",
+    "race": "Asian",
     "veteran": "I am not a protected veteran",
     "disability": "No, I do not have a disability",
     "responses": {
@@ -144,11 +144,17 @@ def get_candidate_dict() -> Dict[str, str]:
         "grad_date": str(cfg.get("grad_date", "05/2026")),
         "grad_month_year": str(cfg.get("grad_month_year", "May 2026")),
         "salary": str(cfg.get("salary", "80000")),
-        "pronouns": cfg.get("pronouns", "They/Them"),
+        "pronouns": cfg.get("pronouns", "He/Him"),
+        "gender": cfg.get("gender", "Male"),
+        "race": cfg.get("race", "Asian"),
+        "veteran": cfg.get("veteran", "I am not a protected veteran"),
+        "disability": cfg.get("disability", "No, I do not have a disability"),
         "preferred_language": cfg.get("preferred_language", "Python"),
         "citizenship": cfg.get("citizenship", "U.S. Citizen"),
         "us_citizen": cfg.get("us_citizen", "Yes"),
-        "us_person": cfg.get("us_person", "Yes")
+        "us_person": cfg.get("us_person", "Yes"),
+        "authorized_in_us": cfg.get("authorized_in_us", "Yes"),
+        "sponsorship_required": cfg.get("sponsorship_required", "No")
     }
 
 def get_responses_dict() -> Dict[str, str]:

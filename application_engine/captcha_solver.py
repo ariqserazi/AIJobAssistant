@@ -34,7 +34,7 @@ except ImportError:
         return True
 
 CAPTCHA_ARTIFACTS_DIR = os.path.expanduser("~/.agents/skills/resume-tailor-swe/artifacts/captchas")
-SCRATCH_CAPTCHAS_DIR = os.environ.get("SCRATCH_DIR", "/tmp/captcha_scratch")
+SCRATCH_CAPTCHAS_DIR = os.getenv("SCRATCH_CAPTCHAS_DIR", os.path.expanduser("~/.agents/skills/resume-tailor-swe/artifacts/captchas"))
 CAPTCHA_KNOWLEDGE_BASE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "captcha_knowledge_base.json")
 os.makedirs(CAPTCHA_ARTIFACTS_DIR, exist_ok=True)
 os.makedirs(SCRATCH_CAPTCHAS_DIR, exist_ok=True)

@@ -44,7 +44,7 @@ CONFIRMATIONS_DIR = os.path.expanduser("~/.agents/skills/resume-tailor-swe/artif
 os.makedirs(CONFIRMATIONS_DIR, exist_ok=True)
 ERRORS_DIR = Path(os.path.expanduser("~/.agents/skills/resume-tailor-swe/artifacts/errors"))
 ERRORS_DIR.mkdir(parents=True, exist_ok=True)
-SCRATCH_ERRORS_DIR = Path(os.environ.get("SCRATCH_DIR", str(ERRORS_DIR)))
+SCRATCH_ERRORS_DIR = Path(os.getenv("SCRATCH_ERRORS_DIR", os.path.expanduser("~/.agents/skills/resume-tailor-swe/artifacts/errors")))
 SCRATCH_ERRORS_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -62,11 +62,31 @@ def apply_to_job(target_obj, job: dict, review_delay: float = 4.0) -> bool:
     """
     created_context = False
     if hasattr(target_obj, "new_page"):
-        context = target_obj.new_context(no_viewport=True) if hasattr(target_obj, "new_context") else target_obj
+        context = target_obj.new_context(
+            no_viewport=True,
+            user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
+        ) if hasattr(target_obj, "new_context") else target_obj
         page = context.new_page()
         created_context = True
     else:
         page = target_obj
+
+    try:
+        from playwright_stealth import Stealth
+        Stealth().apply_stealth_sync(page)
+    except Exception:
+        page.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+
+    def _cleanup():
+        if created_context:
+            try:
+                page.close()
+            except Exception:
+                pass
+            try:
+                context.close()
+            except Exception:
+                pass
 
     url = job.get("url") or job.get("link") or ""
     if "/application" not in url:
@@ -89,8 +109,7 @@ def apply_to_job(target_obj, job: dict, review_delay: float = 4.0) -> bool:
         time.sleep(2.0)
     except Exception as e:
         print(f"  [Error] Failed to load page: {e}", flush=True)
-        if created_context:
-            page.close()
+        _cleanup()
         return False
 
     # Check if job is expired or no longer accepting applications
@@ -101,6 +120,7 @@ def apply_to_job(target_obj, job: dict, review_delay: float = 4.0) -> bool:
         "the job you requested", "job is no longer available", "view all open positions"
     ]):
         print(f"  [Notice] Job at {company} is closed or expired. Skipping.", flush=True)
+        _cleanup()
         return False
 
     # Check active CAPTCHAs before resume upload
@@ -126,10 +146,13 @@ def apply_to_job(target_obj, job: dict, review_delay: float = 4.0) -> bool:
     except Exception:
         pass
 
-    # 4. Visual Review Pause
-    if review_delay > 0:
-        print(f"  [Co-Pilot] Form filled. Pausing {review_delay:.1f}s for visual review...", flush=True)
-        time.sleep(review_delay)
+    # 4. Natural User Interaction & Visual Review
+    dwell_time = max(review_delay, 8.0)
+    print(f"  [Co-Pilot] Form filled. Simulating natural dwell and review ({dwell_time:.1f}s)...", flush=True)
+    page.evaluate("window.scrollTo({ top: document.body.scrollHeight / 2, behavior: 'smooth' })")
+    time.sleep(dwell_time / 2)
+    page.evaluate("window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })")
+    time.sleep(dwell_time / 2)
 
     # 5. Dispatch Native Hardware Mouse Click onto Submit Button
     print("  [Anti-Spam] Engaging native OS hardware mouse to click Submit...", flush=True)
@@ -140,6 +163,7 @@ def apply_to_job(target_obj, job: dict, review_delay: float = 4.0) -> bool:
             page.locator('button[type="submit"], button:has-text("Submit Application")').first.click(timeout=5000)
         except Exception as e:
             print(f"  [Error] Could not click submit button: {e}", flush=True)
+            _cleanup()
             return False
 
     # 6. Verify Submission Confirmation
@@ -147,8 +171,7 @@ def apply_to_job(target_obj, job: dict, review_delay: float = 4.0) -> bool:
     if SubmissionVerifier.is_confirmed(page, max_wait_seconds=12):
         print(f"  ✅ Submission CONFIRMED for {company} - {role}!", flush=True)
         _handle_success(page, company, role, url, resume_pdf)
-        if created_context:
-            page.close()
+        _cleanup()
         return True
 
     # 7. Diagnostic Rectification Loop if not confirmed immediately
@@ -157,8 +180,7 @@ def apply_to_job(target_obj, job: dict, review_delay: float = 4.0) -> bool:
         if SubmissionVerifier.is_confirmed(page, max_wait_seconds=3):
             print(f"  ✅ Submission CONFIRMED for {company} - {role}!", flush=True)
             _handle_success(page, company, role, url, resume_pdf)
-            if created_context:
-                page.close()
+            _cleanup()
             return True
 
         fixed = DOMFiller.diagnose_and_rectify(page, resume_pdf, company, role)
@@ -167,8 +189,22 @@ def apply_to_job(target_obj, job: dict, review_delay: float = 4.0) -> bool:
         try:
             body_text = page.evaluate("() => document.body ? document.body.innerText.toLowerCase() : ''")
             if "flagged as possible spam" in body_text or "please submit your application again" in body_text:
-                print("  ⚠️ [Anti-Spam Bypass] Ashby prompted 'please submit your application again'. Reloading form and engaging human-paced re-submit...", flush=True)
-                time.sleep(3.0)
+                print("  ⚠️ [Anti-Spam Bypass] Ashby prompted 'please submit your application again'. Disagreeing with reload; executing immediate second hardware click...", flush=True)
+                time.sleep(2.5)
+                if not click_element_cv(page, selector='button:has-text("Submit Application"), button[type="submit"]'):
+                    try:
+                        page.locator('button:has-text("Submit Application"), button[type="submit"]').first.click(force=True, timeout=5000)
+                    except Exception:
+                        pass
+                if SubmissionVerifier.is_confirmed(page, max_wait_seconds=12):
+                    print(f"  ✅ Submission CONFIRMED after anti-spam second click for {company} - {role}!", flush=True)
+                    _handle_success(page, company, role, url, resume_pdf)
+                    _cleanup()
+                    return True
+                
+                # If direct click didn't confirm, reload and re-fill
+                print("  ⚠️ Direct second click did not clear banner. Reloading form and re-filling...", flush=True)
+                time.sleep(2.0)
                 app_tab = page.query_selector("button:has-text('Application'), a:has-text('Application'), [role='tab']:has-text('Application')")
                 if app_tab:
                     app_tab.click()
@@ -180,12 +216,15 @@ def apply_to_job(target_obj, job: dict, review_delay: float = 4.0) -> bool:
                 time.sleep(4.0)
                 page.evaluate("window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })")
                 time.sleep(2.0)
-                click_element_cv(page, selector='button:has-text("Submit Application"), button[type="submit"]')
+                if not click_element_cv(page, selector='button:has-text("Submit Application"), button[type="submit"]'):
+                    try:
+                        page.locator('button:has-text("Submit Application"), button[type="submit"]').first.click(force=True, timeout=5000)
+                    except Exception:
+                        pass
                 if SubmissionVerifier.is_confirmed(page, max_wait_seconds=15):
                     print(f"  ✅ Submission CONFIRMED after anti-spam re-submit for {company} - {role}!", flush=True)
                     _handle_success(page, company, role, url, resume_pdf)
-                    if created_context:
-                        page.close()
+                    _cleanup()
                     return True
                 time.sleep(1.0)
                 fixed += DOMFiller.diagnose_and_rectify(page, resume_pdf, company, role)
@@ -196,26 +235,27 @@ def apply_to_job(target_obj, job: dict, review_delay: float = 4.0) -> bool:
             if SubmissionVerifier.is_confirmed(page, max_wait_seconds=3):
                 print(f"  ✅ Submission CONFIRMED for {company} - {role}!", flush=True)
                 _handle_success(page, company, role, url, resume_pdf)
-                if created_context:
-                    page.close()
+                _cleanup()
                 return True
             break
-        print(f"  [Diagnostics] Rectified {fixed} fields on attempt {attempt}. Re-submitting via hardware mouse...", flush=True)
+        print(f"  [Diagnostics] Rectified {fixed} fields on attempt {attempt}. Re-submitting...", flush=True)
         time.sleep(1.5)
-        click_element_cv(page, selector='button:has-text("Submit Application"), button[type="submit"]')
+        if not click_element_cv(page, selector='button:has-text("Submit Application"), button[type="submit"]'):
+            try:
+                page.locator('button:has-text("Submit Application"), button[type="submit"]').first.click(force=True, timeout=5000)
+            except Exception:
+                pass
         if SubmissionVerifier.is_confirmed(page, max_wait_seconds=10):
             print(f"  ✅ Submission CONFIRMED after rectification for {company} - {role}!", flush=True)
             _handle_success(page, company, role, url, resume_pdf)
-            if created_context:
-                page.close()
+            _cleanup()
             return True
 
     # Final check before declaring failure
     if SubmissionVerifier.is_confirmed(page, max_wait_seconds=3):
         print(f"  ✅ Submission CONFIRMED for {company} - {role}!", flush=True)
         _handle_success(page, company, role, url, resume_pdf)
-        if created_context:
-            page.close()
+        _cleanup()
         return True
 
 
@@ -234,8 +274,7 @@ def apply_to_job(target_obj, job: dict, review_delay: float = 4.0) -> bool:
         print(f"  ⚠️ Could not capture error screenshot: {e}", flush=True)
 
     _record_failed_job(job, company, role, url)
-    if created_context:
-        page.close()
+    _cleanup()
     return False
 
 
@@ -348,7 +387,7 @@ def main():
         applied_count = 0
         processed_count = 0
         for job in ashby_jobs:
-            if processed_count >= args.limit:
+            if applied_count >= args.limit:
                 break
 
             processed_count += 1

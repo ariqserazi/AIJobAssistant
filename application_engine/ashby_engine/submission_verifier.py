@@ -42,13 +42,20 @@ class SubmissionVerifier:
                 return True
 
             # 2. Text inspection
-            body_text = page.evaluate("() => document.body ? document.body.innerText.toLowerCase() : ''")
-            if any(phrase in body_text for phrase in CONFIRMATION_PHRASES):
-                return True
+            try:
+                body_text = page.evaluate("() => document.body ? document.body.innerText.toLowerCase() : ''")
+                if any(phrase in body_text for phrase in CONFIRMATION_PHRASES):
+                    return True
+            except Exception:
+                time.sleep(0.5)
+                continue
 
             # 3. Success modal or checkmark icon
-            if page.locator("[class*='confirmation'], [class*='successMessage'], [data-qa*='success']").is_visible():
-                return True
+            try:
+                if page.locator("[class*='confirmation'], [class*='successMessage'], [data-qa*='success']").is_visible():
+                    return True
+            except Exception:
+                pass
 
             time.sleep(0.5)
 

@@ -41,6 +41,14 @@ playwright-report/
 /scratch/
 scratch/
 parallel_logs/
+dump_*.py
+test_*.py
+inspect_*.py
+debug_*.py
+scratch_*.py
+fix_*.py
+update_*.py
+apply_*.py
 
 # Artifacts, Screenshots & PDFs
 *.png

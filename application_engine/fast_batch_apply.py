@@ -402,8 +402,8 @@ def execute_job_submission(browser, job, worker_id=1):
     elif platform == "lever":
         fill_lever_fast(page, tailored_pdf)
     else:
-        from batch_apply_ashby import fill_form_with_diagnostics
-        fill_form_with_diagnostics(page, tailored_pdf)
+        from ashby_engine.dom_filler import DOMFiller
+        DOMFiller.fill_all_fields(page, tailored_pdf, company, title)
 
     time.sleep(1)
 

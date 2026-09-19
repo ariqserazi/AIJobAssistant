@@ -28,12 +28,17 @@ def bring_window_to_front(app_name="Google Chrome for Testing"):
         subprocess.run(["osascript", "-e", script], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         time.sleep(0.4)
     except Exception as e:
-        print(f"  [CV Mouse] Notice: Could not activate window via osascript ({e})", flush=True)
+        pass
+
 
 def click_element_cv(page, locator=None, selector='button[type="submit"], button:has-text("Submit Application")', app_name="Google Chrome for Testing", min_confidence=0.80) -> bool:
     """
     Locates an element and dispatches a true native OS hardware mouse click.
     """
+    use_mouse = os.getenv("USE_MOUSE", "false").lower() in ["true", "1", "yes"]
+    if not use_mouse:
+        return False
+
     try:
         target = locator if locator is not None else page.locator(selector).first
         if not target.is_visible():
@@ -44,18 +49,22 @@ def click_element_cv(page, locator=None, selector='button[type="submit"], button
         target.scroll_into_view_if_needed()
         time.sleep(0.4)
 
-        # 2. Bring window to front
-        bring_window_to_front(app_name)
-        time.sleep(0.4)
+        import fcntl
+        mouse_lock = open("/tmp/physical_mouse.lock", "w")
+        fcntl.flock(mouse_lock, fcntl.LOCK_EX)
+        try:
+            # 2. Bring window to front
+            bring_window_to_front(app_name)
+            time.sleep(0.4)
 
         # 3. Viewport-to-Screen Coordinate Math (Exact calibrated Chrome toolbar offset on macOS)
         try:
             coords = target.evaluate('''el => {
                 const r = el.getBoundingClientRect();
-                // On macOS Chrome, window.screenY is window top, and toolbar height to viewport content is ~87px
+                const toolbarH = (window.outerHeight - window.innerHeight) > 0 ? (window.outerHeight - window.innerHeight) : 80;
                 return {
                     x: window.screenX + r.left + r.width / 2,
-                    y: window.screenY + 87 + r.top + r.height / 2
+                    y: window.screenY + toolbarH + r.top + r.height / 2
                 };
             }''')
             center_x = int(coords['x'])
@@ -67,9 +76,10 @@ def click_element_cv(page, locator=None, selector='button[type="submit"], button
                 time.sleep(0.5)
                 coords2 = target.evaluate('''el => {
                     const r = el.getBoundingClientRect();
+                    const toolbarH = (window.outerHeight - window.innerHeight) > 0 ? (window.outerHeight - window.innerHeight) : 80;
                     return {
                         x: window.screenX + r.left + r.width / 2,
-                        y: window.screenY + 87 + r.top + r.height / 2
+                        y: window.screenY + toolbarH + r.top + r.height / 2
                     };
                 }''')
                 center_x = max(10, min(sw - 10, int(coords2['x'])))
@@ -79,21 +89,36 @@ def click_element_cv(page, locator=None, selector='button[type="submit"], button
 
             # Smooth physical mouse glide
             print("  [CV Mouse] Gliding physical mouse cursor with natural easing...", flush=True)
-            pyautogui.moveTo(center_x, center_y, duration=0.6, tween=pyautogui.easeInOutQuad)
-            time.sleep(0.2)
+            pyautogui.moveTo(center_x, center_y, duration=0.5, tween=pyautogui.easeInOutQuad)
+            time.sleep(0.15)
 
-            # Native hardware OS click (pure physical event)
-            print("  [CV Mouse] Dispatching native OS hardware click (isTrusted: true)...", flush=True)
-            pyautogui.mouseDown()
-            time.sleep(0.12)
-            pyautogui.mouseUp()
-            time.sleep(0.1)
+            # Detect toggleable elements (radios, checkboxes, options, labels) vs standard action buttons
+            is_toggle = target.evaluate('''el => {
+                const tag = (el.tagName || "").toLowerCase();
+                const role = el.getAttribute("role") || "";
+                const cls = el.className || "";
+                return tag === "label" || tag === "input" || role === "radio" || role === "checkbox" || cls.includes("option") || cls.includes("checkbox") || cls.includes("radio");
+            }''')
 
-            # Ensure Playwright CDP click also fires directly on target element
-            try:
-                target.click(timeout=3000)
-            except Exception:
-                pass
+            if is_toggle:
+                # Single authoritative click on the interactive target to trigger React state cleanly without double-toggling
+                try:
+                    target.click(timeout=3000, force=True)
+                except Exception:
+                    pyautogui.mouseDown()
+                    time.sleep(0.1)
+                    pyautogui.mouseUp()
+            else:
+                # Native hardware OS click for submit buttons
+                print("  [CV Mouse] Dispatching native OS hardware click (isTrusted: true)...", flush=True)
+                pyautogui.mouseDown()
+                time.sleep(0.12)
+                pyautogui.mouseUp()
+                time.sleep(0.1)
+                try:
+                    target.click(timeout=3000)
+                except Exception:
+                    pass
 
             print("  [CV Mouse] Hardware click executed successfully.", flush=True)
             return True
@@ -145,6 +170,11 @@ def click_element_cv(page, locator=None, selector='button[type="submit"], button
         print(f"  [CV Mouse] Execution error: {e}", flush=True)
         return False
     finally:
+        try:
+            fcntl.flock(mouse_lock, fcntl.LOCK_UN)
+            mouse_lock.close()
+        except Exception:
+            pass
         for p in [locals().get("template_path"), locals().get("screen_path")]:
             if p and os.path.exists(p):
                 try:

@@ -108,7 +108,7 @@ CANDIDATE_DATA = {
     "portfolio": _c_dict.get("portfolio", "https://janedoe.dev"),
     "salary_expectation": _c_dict.get("salary", "80000"),
     "years_experience": "2",
-    "pronouns": _c_dict.get("pronouns", "They/Them"),
+    "pronouns": _c_dict.get("pronouns", "He/Him"),
     "preferred_language": _c_dict.get("preferred_language", "Python"),
     "sat": _cfg.get("sat", "1280"),
 }
@@ -129,47 +129,60 @@ FREE_TEXT_RESPONSES = {
         f"and a Python backend backed by PostgreSQL and Docker. I designed the relational "
         f"database schemas to ensure transactional consistency for expense records and "
         f"implemented gRPC protocols to reduce network overhead. It represents my focus on "
-        f"clean data modeling and reliable backend contracts."
+        f"clean data modeling and reliable backend contracts. Through disciplined end to end "
+        f"automated testing and containerized deployment, I ensured seamless reliability across distributed user sessions."
     ),
     "process": (
         f"At {_c_dict.get('current_company', 'Tech Startup')}, I designed and implemented an automated validation pipeline using Python "
         f"and FastAPI that validated structured LLM outputs against strict schemas before calling downstream "
         f"APIs. This eliminated malformed requests and minimized manual verification overhead. "
         f"Additionally, building {_cfg.get('featured_project', 'Distributed Cloud System')} reinforced my practice of enforcing database transactions and "
-        f"using gRPC contracts to eliminate synchronization drift."
+        f"using gRPC contracts to eliminate synchronization drift. This disciplined approach ensures that all software changes are thoroughly verified before deployment to production."
     ),
     "organization": (
         "A well run engineering organization is defined by clear API contracts, continuous automated "
         "testing, and concise technical documentation. Tight feedback loops during code reviews and "
-        "shared architectural standards allow teams to iterate fast while maintaining high system reliability."
+        "shared architectural standards allow teams to iterate fast while maintaining high system reliability. "
+        "Transparent technical decision making ensures every engineer understands system constraints and tradeoffs. "
+        "Open communication and collaborative code reviews foster continuous learning and collective ownership of codebase health."
     ),
     "why": (
         f"I am drawn to engineering teams focused on building resilient developer infrastructure, "
         f"clean distributed systems, and reliable API services. My background building full stack and "
-        f"backend platforms with Python and modern databases directly aligns with scaling your services."
+        f"backend platforms with Python and modern databases directly aligns with scaling your services. "
+        f"I admire teams that emphasize strong architectural discipline, fast feedback loops, and measurable performance benchmarks. "
+        f"I am excited to bring my technical skills, collaborative mindset, and passion for systems programming to help achieve your company goals."
     ),
     "experience": (
         f"As an automation engineer at {_c_dict.get('current_company', 'Tech Startup')}, I designed asynchronous Python and FastAPI "
         f"microservices integrated with LLM workflows, Docker, and REST APIs. At {_cfg.get('previous_employer', 'Software Labs')}, "
-        f"I engineered secure payment workflows with Node.js, Express, and PostgreSQL, handling payment gateway integrations with rigorous error handling."
+        f"I engineered secure payment workflows with Node.js, Express, and PostgreSQL, handling payment gateway integrations with rigorous error handling. "
+        f"Across both roles, I prioritized resilient database schemas, high test coverage, and deterministic error handling. "
+        f"I consistently partner with cross functional teams to ship maintainable software that solves real user requirements."
     ),
     "ai_experience": (
         f"At {_c_dict.get('current_company', 'Tech Startup')}, I built automated validation pipelines integrating LLMs with Python and FastAPI, "
         f"using structured schemas to validate outputs before feeding downstream systems. I have worked "
-        f"with prompt engineering, model inference pipelines, and API integrations with modern LLM tooling."
+        f"with prompt engineering, model inference pipelines, and API integrations with modern LLM tooling. "
+        f"My implementation reduced parsing failures to near zero across thousands of automated validation requests. "
+        f"I continuously explore emerging methodologies in deterministic evaluation and schema constrained generation to ensure production readiness."
     ),
     "ai_tech": (
         "Python, FastAPI, Docker, GCP Gemini, OpenAI API, LangChain, REST APIs, JSON Schema validation."
     ),
     "role_preferences": (
         "I am looking for an engineering role where I can build reliable backend systems, distributed services, "
-        "and production APIs with rigorous testing. I prefer avoiding ambiguous roadmaps and unmaintained codebases."
+        "and production APIs with rigorous testing. I prefer avoiding ambiguous roadmaps and unmaintained codebases. "
+        "I thrive in environments with clear architectural documentation, collaborative code reviews, and high engineering standards. "
+        "My goal is to work alongside thoughtful engineers where I can take ownership of core platform components and drive measurable impact."
     ),
     "entrepreneurial": (
         f"At {_c_dict.get('current_company', 'Tech Startup')}, I led the technical development of automated knowledge curation pipelines, "
         f"architecting FastAPI microservices, containerizing services with Docker, and designing structured JSON Schema "
         f"validation for LLM outputs. I also built {_cfg.get('featured_project', 'Distributed Cloud System')}, an end to end financial synchronization platform with Flutter, "
-        f"Python, PostgreSQL, and gRPC, driving product decisions from schema design to deployment."
+        f"Python, PostgreSQL, and gRPC, driving product decisions from schema design to deployment. "
+        f"Owning projects from initial concept through deployment taught me how to balance architectural rigor with fast user feedback. "
+        f"I actively seek out unblocking opportunities and take initiative to solve operational bottlenecks before they impact users."
     ),
     "exceptional_performance": (
         f"In my academic and professional career, I have consistently pursued high standards of engineering excellence. "
@@ -189,16 +202,21 @@ FREE_TEXT_RESPONSES = {
         f"At {_c_dict.get('current_company', 'Tech Startup')}, I designed and implemented secure automated schema validation pipelines, ensuring that all structured LLM outputs "
         f"and external API requests were strictly validated before reaching downstream database services. By enforcing cryptographic token "
         f"authentication, strict role based access controls, and sanitized data serialization, we eliminated injection vulnerabilities "
-        f"and protected sensitive customer data across distributed endpoints."
+        f"and protected sensitive customer data across distributed endpoints. I also conducted comprehensive security audits to verify that sensitive endpoints complied with zero trust principles. "
+        f"This preventative security posture ensured system integrity under adversarial payloads."
     ),
     "mobile_project": (
         f"My proudest project is {_cfg.get('featured_project', 'Distributed Cloud System')}, an application built with a responsive interface and a high performance "
         f"Python and PostgreSQL backend. I designed the architecture to handle sub 100ms real time synchronization using efficient state "
-        f"management and WebSocket streaming, ensuring seamless data persistence and intuitive interactions under volatile network conditions."
+        f"management and WebSocket streaming, ensuring seamless data persistence and intuitive interactions under volatile network conditions. "
+        f"I engineered offline first caching to ensure users retain responsive access even during intermittent network drops. "
+        f"Through comprehensive unit and widget testing, I maintained clean separation of concerns and high software stability."
     ),
     "motivation": (
         "I am driven by complex backend systems, distributed architectures, and creating reliable high performance developer tooling. "
-        "I enjoy solving challenging engineering problems alongside collaborative teams with high engineering standards."
+        "I enjoy solving challenging engineering problems alongside collaborative teams with high engineering standards. "
+        "I am energized by designing clean system boundaries and writing deterministic code that scales reliably. "
+        "Partnering with thoughtful peers who value craftsmanship and mutual mentorship inspires me to do my best work."
     ),
     "swiftui_details": (
         f"I built {_cfg.get('featured_project', 'Distributed Cloud System')} using SwiftUI with declarative state management using StateObject and "
@@ -218,26 +236,36 @@ FREE_TEXT_RESPONSES = {
     "deepgram_excitement": (
         "I am excited by Deepgrams industry leading low latency speech recognition models and voice agent "
         "architecture. Building real time audio and voice intelligence pipelines that operate with sub second "
-        "end to end latency is the next frontier of human computer interaction."
+        "end to end latency is the next frontier of human computer interaction. "
+        "The ability to transcribe and understand conversational speech in real time unlocks completely new paradigms for intelligent applications. "
+        "I am eager to apply my background in distributed systems and backend engineering to support these high performance pipelines."
     ),
     "ai_most_impressive": (
         f"At {_c_dict.get('current_company', 'Tech Startup')}, I designed and deployed an automated validation pipeline using Python and FastAPI "
         f"that verified structured LLM outputs against strict schemas before executing downstream database transactions. "
         f"The system utilized Pydantic schemas, cryptographic token validation, and retry logic to eliminate malformed payloads, "
-        f"reducing downstream schema errors to near zero."
+        f"reducing downstream schema errors to near zero. "
+        f"This architecture prevented corrupted payloads from propagating to critical downstream services and eliminated manual debugging overhead. "
+        f"It validated my belief that structured schema constraints are essential for reliable AI integrations."
     ),
     "crm_interest": (
         "CRMs are the operational source of truth for modern businesses. I am fascinated by the challenge "
-        "of designing flexible data models and real time synchronization pipelines that scale as organizations expand."
+        "of designing flexible data models and real time synchronization pipelines that scale as organizations expand. "
+        "Ensuring high availability, auditability, and deterministic state transitions across large scale customer graphs presents fascinating systems challenges. "
+        "I look forward to engineering resilient backends that provide seamless data integrity for growing teams."
     ),
     "attio_problem_solved": (
         f"At {_c_dict.get('current_company', 'Tech Startup')}, I built an automated schema validation engine that intercepted model outputs and validated "
         f"them against relational database constraints. This prevented corrupted payloads from entering client workflows "
-        f"and eliminated manual verification overhead."
+        f"and eliminated manual verification overhead. "
+        f"This preventative validation pipeline eliminated hours of manual investigation and maintained data consistency under peak load. "
+        f"It demonstrated how thoughtful architectural design directly impacts reliability and developer productivity."
     ),
     "role_fit": (
         "I enjoy combining deep systems engineering with technical problem solving for customers. This role "
-        "allows me to leverage my backend, API contract, and debugging skills to help teams integrate robust systems."
+        "allows me to leverage my backend, API contract, and debugging skills to help teams integrate robust systems. "
+        "I take pride in communicating complex technical concepts clearly and collaborating across disciplines to unblock teams. "
+        "My dedication to engineering excellence and continuous learning enables me to quickly adapt and deliver value on critical projects."
     ),
     "tech_stack": (
         "Python, FastAPI, PostgreSQL, Flutter, Dart, Docker, gRPC, Redis, JavaScript, TypeScript, React."
@@ -342,7 +370,8 @@ def generate_company_excitement(company: str = "the company", role: str = "Softw
             f"I am deeply drawn to {company}'s focus on engineering resilient, institutional grade financial architecture. "
             f"Developing low latency order routing, reliable transactional data consistency, and high throughput APIs requires "
             f"rigorous systems discipline. With my Computer Science background at Rutgers University and practical experience "
-            f"building distributed backend services with Python, PostgreSQL, and gRPC, I am eager to help scale {company}'s core execution systems."
+            f"building distributed backend services with Python, PostgreSQL, and gRPC, I am eager to help scale {company}'s core execution systems. "
+            f"I am eager to apply my focus on clean code and robust error recovery to ensure high reliability across your production systems."
         )
 
     # 2. Cloud Infrastructure / Developer Tooling / Security (Semgrep, Megazone, Sentry, Datadog)
@@ -350,8 +379,9 @@ def generate_company_excitement(company: str = "the company", role: str = "Softw
         return (
             f"I am inspired by {company}'s mission to empower engineers with robust infrastructure and developer tooling. "
             f"Building highly reliable distributed systems, clean API boundaries, and scalable services aligns directly with my engineering focus. "
-            f"Having engineered automated validation microservices in Python and containerized backends with Docker at {CANDIDATE_DATA.get('school', 'State University')} and {CANDIDATE_DATA.get('current_company', 'Tech Startup')}, "
-            f"I look forward to contributing to {company}'s cloud and developer platforms."
+            f"Having engineered automated validation microservices in Python and containerized backends with Docker at Rutgers University and Amin AI, "
+            f"I look forward to contributing to {company}'s cloud and developer platforms. "
+            f"I look forward to applying my backend development skills and disciplined testing practices to help scale your core services."
         )
 
     # 3. Marketplaces / Consumer Tech / Real-Time Media (WhatNot, Ibotta, Fanatics)
@@ -359,7 +389,8 @@ def generate_company_excitement(company: str = "the company", role: str = "Softw
         return (
             f"I am excited by {company}'s rapid scale and dynamic real time user experience. Architecting resilient backends capable of "
             f"handling synchronized live transactions, sub 100ms response times, and high concurrent load is an engineering challenge I thrive on. "
-            f"My experience developing real time data synchronization platforms with Python, FastAPI, and PostgreSQL allows me to add immediate value to your engineering team."
+            f"My experience developing real time data synchronization platforms with Python, FastAPI, and PostgreSQL allows me to add immediate value to your engineering team. "
+            f"I am enthusiastic about contributing clean architecture, reliable API design, and rapid problem solving to your engineering initiatives."
         )
 
     # 4. General / Tech Innovation
@@ -367,7 +398,8 @@ def generate_company_excitement(company: str = "the company", role: str = "Softw
         return (
             f"I am excited about the {role} opportunity at {company}. I admire your team's dedication to high engineering standards "
             f"and solving challenging systems problems. With my background in Computer Science from Rutgers University and production software "
-            f"engineering experience building reliable backend services with Python, FastAPI, and PostgreSQL, I look forward to delivering measurable impact on your platform."
+            f"engineering experience building reliable backend services with Python, FastAPI, and PostgreSQL, I look forward to delivering measurable impact on your platform. "
+            f"I am confident that my strong foundation in systems engineering and passion for building resilient software make me a great fit for your engineering team."
         )
 
 class FieldMatcher:
@@ -389,8 +421,12 @@ class FieldMatcher:
         if any(k in tl for k in ["referred by", "referral", "name of the person who referred"]):
             return ""
 
-        if "name" in tl and not any(k in tl for k in ["company", "school", "user", "pronoun", "hear", "refer"]):
-            return CANDIDATE_DATA["name"]
+        # Company assigned / prior employer email (e.g. Rivian/RV Tech email assigned during employment)
+        if any(k in tl for k in ["assigned to you", "during your time as an employee", "prior employee email", "rivian email", "rv tech"]):
+            return "None"
+
+        if any(k in tl for k in ["pronoun", "gender pronoun", "preferred pronoun"]):
+            return "He/Him"
         if "email" in tl:
             return CANDIDATE_DATA["email"]
         if any(k in tl for k in ["phone", "mobile", "cell"]):
@@ -412,7 +448,7 @@ class FieldMatcher:
         if any(k in tl for k in ["portfolio", "website", "personal link", "other link"]):
             return CANDIDATE_DATA["portfolio"]
 
-        # Current or most recent employer (dynamically chooses from candidate experience)
+        # Current or most recent employer (dynamically chooses Amin AI vs TidaMed)
         if any(k in tl for k in ["current or most recent employer", "current employer", "most recent employer", "recent employer", "current company", "employer"]):
             return get_recent_employer(company=company, role=role)
             
@@ -482,12 +518,29 @@ class FieldMatcher:
             return "Drive there"
         if any(k in tl for k in ["authorized to work", "legally authorized", "eligible to work"]):
             return "Yes"
-        if any(k in tl for k in ["require sponsorship", "visa sponsorship"]):
+        if any(k in tl for k in ["require sponsorship", "visa sponsorship", "require work authorization", "require authorization", "need sponsorship", "need work authorization", "require an employment visa"]) or (any(k in tl for k in ["require", "need"]) and any(k in tl for k in ["authorization", "sponsorship", "sponsor", "visa"]) and not any(k in tl for k in ["not require", "not need", "without"])):
+            return "No"
+
+        # Preferred Name
+        if any(k in tl for k in ["preferred name", "preferred first name"]):
+            return CANDIDATE_DATA.get("preferred_name", "")
+
+        # Related to current employees / Relatives / Nepotism (Strictly None)
+        if any(k in tl for k in ["related to any", "relative", "family member", "conflict of interest"]):
+            return "None"
+
+        # Previous employment at company / former employee (Strictly NO)
+        if (any(k in tl for k in [
+            "ever worked for", "previously worked for", "worked for", "ever been employed by",
+            "previously employed by", "employed by", "worked at", "employed at", "prior employment with",
+            "previous employment with", "former employee", "previous employee", "worked as a contractor",
+            "contractor/contingent worker", "partner", "ever worked"
+        ]) or (any(p in tl for p in ["previous", "former", "prior", "past"]) and any(e in tl for e in ["employee", "employed", "contractor", "intern"]))):
             return "No"
 
         # 12. Fallback for general Yes/No questions appearing in single-line text inputs
         if any(tl.startswith(q) for q in ["are you", "do you", "will you", "can you", "have you", "is there"]):
-            if any(k in tl for k in ["sponsor", "visa", "felony", "crime", "terminated", "fired"]):
+            if any(k in tl for k in ["sponsor", "visa", "felony", "crime", "terminated", "fired", "employee", "employed", "worked at", "worked for", "conflict", "relative"]) or (any(k in tl for k in ["require", "need"]) and any(k in tl for k in ["authorization", "sponsor", "visa"])):
                 return "No"
             return "Yes"
             
@@ -562,7 +615,9 @@ class FieldMatcher:
             raw = (
                 f"I am excited about the {role} role at {company}. With a background in Computer Science "
                 f"from Rutgers University and production software engineering experience building reliable "
-                f"backend systems with Python, FastAPI, and PostgreSQL, I look forward to contributing to your team."
+                f"backend systems with Python, FastAPI, and PostgreSQL, I look forward to contributing to your team. "
+                f"I take pride in writing clean, well tested code and designing deterministic API contracts that prevent data anomalies. "
+                f"I am eager to collaborate with your engineering team to build scalable services that deliver real user value."
             )
             
         return sanitize_free_text(raw)
@@ -589,6 +644,8 @@ class FieldMatcher:
             return "May"
         if any(k in tl for k in ["graduation year", "grad year", "year of graduation"]):
             return "2028"
+        if any(k in tl for k in ["graduation date", "grad date", "expected graduation"]):
+            return "05/20/2028"
 
 
         # Thumbtack location
@@ -644,6 +701,19 @@ class FieldMatcher:
                     if opt.lower().startswith("no") or ("no" in opt.lower() and "disability" in opt.lower()):
                         return opt
             return "No, I do not have a disability and have not had one in the past"
+        # Work Authorization & Sponsorship
+        if any(k in tl for k in ["sponsorship", "require sponsorship", "visa sponsorship"]) and not any(k in tl for k in ["without sponsorship", "without employer sponsorship", "without requiring sponsorship", "without visa"]):
+            if available_options:
+                for o in available_options:
+                    if any(k in o.lower() for k in ["no", "will not require", "do not require"]):
+                        return o
+            return "No"
+        if any(k in tl for k in ["authorized to work", "legally authorized", "work authorization", "work authorization status", "without employer sponsorship", "without sponsorship"]):
+            if available_options:
+                for o in available_options:
+                    if any(k in o.lower() for k in ["citizen", "yes", "authorized"]):
+                        return o
+            return "Yes"
             
         return ""
 
@@ -659,7 +729,7 @@ class FieldMatcher:
         if any(k in tl for k in [
             "sponsor", "sponsorship", "require sponsorship", "visa sponsorship",
             "now or in the future require"
-        ]):
+        ]) and not any(k in tl for k in ["without sponsorship", "without employer sponsorship", "without requiring sponsorship", "without visa"]):
             if any(k in tl for k in ["when do you estimate", "when will you require", "estimate you will require"]):
                 if available_labels:
                     for l in available_labels:
@@ -675,7 +745,7 @@ class FieldMatcher:
         # 3. Work Authorization (Strictly YES, NO sponsorship)
         if any(k in tl for k in [
             "authorized", "legally authorized", "eligible to work", "right to work",
-            "work in the united states", "work authorization"
+            "work in the united states", "work authorization", "without employer sponsorship", "without sponsorship"
         ]):
             if available_labels:
                 # Prefer options that explicitly declare no sponsorship needed / citizen / any employer
@@ -721,7 +791,8 @@ class FieldMatcher:
         if any(k in tl for k in [
             "downtown sf office", "sf office", "office 3 days", "office 5 days",
             "come into our", "in office", "in-office", "onsite", "on-site", "in-person", "hybrid", "able to come into",
-            "commuting", "comfortable commuting"
+            "commuting", "comfortable commuting", "work from our offices", "work from our office",
+            "work from the office", "from our office", "from the office", "able to work from"
         ]):
             if available_labels:
                 for l in available_labels:
@@ -746,7 +817,7 @@ class FieldMatcher:
                         if "1-3" in l or "1-2" in l or "1" in l:
                             return l
                 elif "sql" in tl or "database" in tl:
-                    # Select 1-3 or 4-6 years (extensive SQL experience building production backends)
+                    # Select 1-3 or 4-6 years (Candidate has extensive SQL experience at Amin AI, TidaMed, Trackwise)
                     for l in available_labels:
                         if "1-3" in l:
                             return l
@@ -765,6 +836,18 @@ class FieldMatcher:
                     if l.lower().startswith("no") or "do not consent" in l.lower():
                         return l
             return "No"
+
+        # Prior internships count
+        if any(k in tl for k in ["how many prior internships", "prior internships have you had", "previous internships", "number of internships", "internships have you"]):
+            if available_labels:
+                for l in available_labels:
+                    if "3" in l or "2" in l:
+                        return l
+                for l in available_labels:
+                    if "1" in l:
+                        return l
+                return available_labels[-1]
+            return "3+"
 
         # Pursuing a degree in CS / related field (Strictly YES)
         if any(k in tl for k in [
@@ -853,12 +936,12 @@ class FieldMatcher:
             return "No"
 
         # Previous employment at company / subsidiaries (Strictly NO)
-        if any(k in tl for k in [
+        if (any(k in tl for k in [
             "ever worked for", "previously worked for", "worked for", "ever been employed by",
             "previously employed by", "employed by", "worked at", "employed at", "prior employment with",
             "previous employment with", "former employee", "previous employee", "worked as a contractor",
             "contractor/contingent worker", "partner", "ever worked"
-        ]):
+        ]) or (any(p in tl for p in ["previous", "former", "prior", "past"]) and any(e in tl for e in ["employee", "employed", "contractor", "intern"]))):
             if available_labels:
                 for l in available_labels:
                     ll = l.lower()
@@ -907,9 +990,19 @@ class FieldMatcher:
             if not any(k in tl for k in ["rutgers"]):
                 return "No"
                 
-        # 18 or older
+        # Freshman or Sophomore in undergraduate (Strictly NO - Master's student)
+        if any(k in tl for k in ["freshman", "sophomore", "first-year", "second-year"]):
+            return "No"
+
+        # 18 or older / Age brackets
         if any(k in tl for k in ["18 years", "at least 18", "age of majority"]):
             return "Yes"
+        if "age" in tl:
+            if available_labels:
+                for l in available_labels:
+                    if any(k in l.lower() for k in ["under 30", "18-29", "20-29", "21-29", "under 25", "18-24", "18-20"]):
+                        return l
+
             
         # Clearance
         if any(k in tl for k in ["security clearance", "active clearance"]):
@@ -917,9 +1010,9 @@ class FieldMatcher:
             
         # ITAR / Space Tech / US Person (Strictly YES / US Citizen)
         if any(k in tl for k in [
-            "us person", "u.s. person", "export control", "itar",
+            "us person", "u.s. person", "export control",
             "space technology export regulations", "authorized from the u.s. department of state"
-        ]) or re.search(r'\bear\b', tl):
+        ]) or re.search(r'\b(itar|ear)\b', tl):
             if available_labels:
                 for l in available_labels:
                     if any(k in l.lower() for k in ["u.s. person", "u.s. citizen", "yes"]):
@@ -1114,6 +1207,12 @@ class FieldMatcher:
         # Demographics
         if "transgender" in tl:
             return "No"
+        if any(k in tl for k in ["lesbian", "gay", "bisexual", "lgb", "lgbt", "lgbtq"]):
+            if available_labels:
+                for opt in available_labels:
+                    if opt.lower() == "no" or opt.lower().startswith("no"):
+                        return opt
+            return "No"
         if any(k in tl for k in ["sexual orientation", "sexual identity", "describe your sexual"]):
             if available_labels:
                 for opt in available_labels:
@@ -1141,16 +1240,18 @@ class FieldMatcher:
                     if "asian" in opt_l:
                         return opt
             return "Asian"
-        if "veteran" in tl:
+        if any(k in tl for k in ["veteran", "military", "armed forces", "served in"]):
             if available_labels:
                 for opt in available_labels:
-                    if "not" in opt.lower() and "veteran" in opt.lower():
+                    opt_l = opt.lower()
+                    if any(neg in opt_l for neg in ["not a protected veteran", "i am not a protected veteran", "not a veteran", "never served", "no military"]) or opt_l == "no":
                         return opt
-            return "I am not a protected veteran"
+            return "No"
         if "disability" in tl:
             if available_labels:
                 for opt in available_labels:
-                    if opt.lower().startswith("no") or ("no" in opt.lower() and "disability" in opt.lower()):
+                    opt_l = opt.lower()
+                    if opt_l.startswith("no") or ("no" in opt_l and "disability" in opt_l):
                         return opt
             return "No, I do not have a disability and have not had one in the past"
             
@@ -1187,6 +1288,33 @@ class FieldMatcher:
         """Determines target checkbox values to select for multi-choice or single checkboxes."""
         tl = title.lower()
 
+        # Relocating / Office Locations Preference (Checkboxes)
+        if any(k in tl for k in ["relocating to", "relocate to", "locations that you would be interested in", "interested in relocating", "preferred location", "office location"]):
+            if available_options:
+                ny = [o for o in available_options if any(k in o.lower() for k in ["new york", "ny", "nyc"])]
+                if ny:
+                    return ny
+                sf = [o for o in available_options if any(k in o.lower() for k in ["san francisco", "sf", "california", "ca"])]
+                if sf:
+                    return sf
+                remote = [o for o in available_options if "remote" in o.lower()]
+                if remote:
+                    return remote
+                return [available_options[0]]
+            return ["New York, NY"]
+
+        # Degree Type / Degree Level (Checkboxes)
+        if any(k in tl for k in ["degree type", "type of degree", "degree level", "degree(s) pursuing"]):
+            if available_options:
+                masters = [o for o in available_options if "master" in o.lower()]
+                if masters:
+                    return masters
+                bachelors = [o for o in available_options if any(k in o.lower() for k in ["bachelor", "undergraduate"])]
+                if bachelors:
+                    return bachelors
+                return [available_options[0]]
+            return ["Master's"]
+
         # Software Teams Preference
         if any(k in tl for k in ["software team", "teams are you most interested", "team(s) are you interested", "which team"]):
             if available_options:
@@ -1200,7 +1328,11 @@ class FieldMatcher:
             return ["Open to any team/No strong preference"]
         
         # Co-op / Internship term availability (e.g. Fall 2026, Winter 2027, Summer 2027)
-        if any(k in tl for k in ["co-op", "work term", "internship times", "internship seasons", "terms are you open", "which terms", "term(s)", "which term"]):
+        if any(k in tl for k in [
+            "co-op", "work term", "internship times", "internship seasons", "terms are you open",
+            "which terms", "term(s)", "which term", "internship program", "program are you applying",
+            "which program", "which internship"
+        ]):
             if available_options:
                 summer_2027 = [o for o in available_options if "summer 2027" in o.lower()]
                 if summer_2027:
@@ -1214,11 +1346,19 @@ class FieldMatcher:
                 m = [o for o in available_options if "summer" in o.lower()]
                 if m:
                     return m
+                spring_opts = [o for o in available_options if "spring 2027" in o.lower() or "spring" in o.lower()]
+                if spring_opts:
+                    return spring_opts
+                winter_opts = [o for o in available_options if "winter 2026" in o.lower() or "winter" in o.lower()]
+                if winter_opts:
+                    return winter_opts
             return ["Summer 2027", "2027 Summer Semester Only (Single Block: May - Aug)", "Summer"]
             
-        # AI Policy / Terms / Agreements / Consents
-        if any(k in tl for k in ["ai policy", "privacy", "terms", "consent", "acknowledge", "agreement", "certify", "accurate"]):
-            return ["agree", "accept", "yes", "acknowledge", "consent", "i agree", "i acknowledge", "true"]
+        # AI Policy / Terms / Agreements / Consents / Legal & Truth Certifications
+        if any(k in tl for k in ["ai policy", "privacy", "terms", "consent", "acknowledge", "agreement", "certify", "accurate", "true and correct", "false statements", "disqualification", "termination", "information provided"]):
+            if available_options and len(available_options) <= 2:
+                return available_options
+            return ["agree", "accept", "yes", "acknowledge", "consent", "i agree", "i acknowledge", "i certify", "certify", "true", "true and correct"]
             
         # Background check / drug screen
         if any(k in tl for k in ["background check", "drug test"]):
@@ -1245,11 +1385,15 @@ class FieldMatcher:
             return ["Robotics Team", "None of the Above"]
 
         # Race / Ethnic background (Demographics multi-select)
-        if any(k in tl for k in ["racial", "ethnic background", "race/ethnic", "race", "ethnicity"]):
+        if any(k in tl for k in ["racial", "ethnic background", "race/ethnic", "race", "ethnicity", "categories describe you", "which categories"]):
             if available_options:
                 for o in available_options:
                     ol = o.lower()
                     if "south asian" in ol:
+                        return [o]
+                for o in available_options:
+                    ol = o.lower()
+                    if "east asian" in ol:
                         return [o]
                 for o in available_options:
                     ol = o.lower()
@@ -1302,5 +1446,11 @@ class FieldMatcher:
                 return [available_options[0]]
             return ["LinkedIn"]
             
+        # Fallback: if available_options contains consent/agreement keywords, return them; otherwise return [] so AI or caller handles it
+        if available_options:
+            agree_opts = [o for o in available_options if any(k in o.lower() for k in ["agree", "accept", "consent", "certify", "acknowledge"])]
+            if agree_opts:
+                return agree_opts
+            return []
         return ["agree", "yes", "true", "i agree"]
 

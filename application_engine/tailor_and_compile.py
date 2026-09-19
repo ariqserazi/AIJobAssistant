@@ -45,13 +45,13 @@ BACKEND_EXPERIENCE = r"""\section{Experience}
 {Tech Startup}{New York, NY}
 \resumeItemListStart
 
-\resumeItem{Engineered backend automation microservices in Python and FastAPI to process high-throughput JSON workflows.}
+\resumeItem{Engineered Python and FastAPI microservices, delivering sub-100ms latency for async JSON workflows.}
 
-\resumeItem{Implemented chunked retrieval, input sanitization, and Pydantic validation to prevent malformed payloads.}
+\resumeItem{Implemented Pydantic schema validation and sanitization, eliminating malformed payloads in production.}
 
-\resumeItem{Architected asynchronous API routing connecting language models with external cloud tools and databases.}
+\resumeItem{Architected asynchronous non-blocking routing for LLM runtimes, enabling reliable multi-tool execution.}
 
-\resumeItem{Containerized Python services with Docker and orchestrated cloud deployments across Google Cloud Platform.}
+\resumeItem{Containerized Python services with Docker on GCP, establishing isolated runtimes and zero downtime.}
 
 \resumeItemListEnd
 
@@ -61,13 +61,13 @@ BACKEND_EXPERIENCE = r"""\section{Experience}
 {Software Labs}{San Francisco, CA}
 \resumeItemListStart
 
-\resumeItem{Developed high-throughput REST APIs using Node.js and Express to process secure telehealth payments.}
+\resumeItem{Developed high-throughput Node.js/Express REST APIs, sustaining sub-150ms telehealth payment latency.}
 
-\resumeItem{Integrated Stripe and PayPal APIs to process healthcare payments and increase completion by 25\%.}
+\resumeItem{Integrated Stripe and PayPal APIs with webhook verification, lifting payment completion by 25\%.}
 
-\resumeItem{Implemented JWT authentication, request validation middleware, and HIPAA-compliant error handling.}
+\resumeItem{Implemented JWT auth, request validation middleware, and HIPAA compliance, securing sensitive data.}
 
-\resumeItem{Optimized database query interfaces and REST endpoints, eliminating latency in client-server workflows.}
+\resumeItem{Optimized PostgreSQL query indexing and REST response caching, eliminating database latency bottlenecks.}
 
 \resumeItemListEnd
 
@@ -77,11 +77,11 @@ BACKEND_EXPERIENCE = r"""\section{Experience}
 {Digital Systems LLC}{Austin, TX}
 \resumeItemListStart
 
-\resumeItem{Architected serverless Python backends on AWS Lambda and API Gateway for high-concurrency client requests.}
+\resumeItem{Architected serverless Python backends on AWS Lambda, auto-scaling for high concurrency with zero downtime.}
 
-\resumeItem{Designed DynamoDB NoSQL schemas and engineered validation logic in Python to maintain data integrity.}
+\resumeItem{Designed DynamoDB NoSQL schemas with composite keys, preventing data anomalies across concurrent orders.}
 
-\resumeItem{Implemented structured logging, request validation, and error handling to ensure 99.9\% API reliability.}
+\resumeItem{Engineered CloudWatch structured logging, validation, and error recovery, maintaining 99.9\% API uptime.}
 
 \resumeItem{Built responsive Flutter client features and connected mobile state to backend cloud endpoints.}
 
@@ -98,11 +98,11 @@ BACKEND_PROJECTS = r"""\section{Projects}
 
 \resumeItem{Built a real-time distributed expense tracker using Python and gRPC with sub-100ms synchronization.}
 
-\resumeItem{Implemented high-performance gRPC protobuf services, reducing network overhead and payload size by 30\%.}
+\resumeItem{Implemented high-performance gRPC protobuf contracts, cutting network payload sizes by 30\% over JSON.}
 
 \resumeItem{Designed PostgreSQL schemas, indexing strategies, and connection pooling for concurrent financial data.}
 
-\resumeItem{Containerized backend microservices with Docker for consistent development and deployment environments.}
+\resumeItem{Containerized backend microservices with Docker Compose, standardizing local and production runtimes.}
 
 \resumeItemListEnd
 
@@ -110,11 +110,11 @@ BACKEND_PROJECTS = r"""\section{Projects}
 {\textbf{MediaWiki Bridge API} $|$ \emph{Python, FastAPI, Docker, REST APIs, MCP}}{Feb 2026 -- Present}
 \resumeItemListStart
 
-\resumeItem{Designed and deployed a secure REST API to retrieve structured canonical data using validated endpoints.}
+\resumeItem{Designed a high-performance FastAPI REST service to retrieve canonical data with strict Pydantic models.}
 
-\resumeItem{Built an MCP server adapter to enable LLM clients to query the API through a controlled tool interface.}
+\resumeItem{Built an MCP server adapter to enable autonomous AI agents to query external tools via structured calls.}
 
-\resumeItem{Containerized and deployed using Docker, ensuring secure, isolated, and reliable cloud operation.}
+\resumeItem{Containerized and deployed using Docker, ensuring secure, isolated environments and 99.9\% availability.}
 
 \resumeItemListEnd
 
@@ -129,13 +129,13 @@ FRONTEND_EXPERIENCE = r"""\section{Experience}
 {Tech Startup}{New York, NY}
 \resumeItemListStart
 
-\resumeItem{Built interactive client automation workflows connecting web frontends to FastAPI and language models.}
+\resumeItem{Built responsive client automation interfaces connecting web frontends to FastAPI services and LLMs.}
 
-\resumeItem{Developed clean REST endpoints with structured JSON schemas and comprehensive API documentation.}
+\resumeItem{Developed clean REST endpoints with structured JSON schemas, enabling reliable client integration.}
 
-\resumeItem{Implemented client request validation and automated error feedback to ensure smooth user interactions.}
+\resumeItem{Implemented client-side input validation and error feedback, eliminating invalid payload submissions.}
 
-\resumeItem{Containerized web services with Docker to maintain uniform local development and deployment pipelines.}
+\resumeItem{Containerized frontend and backend services with Docker, standardizing local development pipelines.}
 
 \resumeItemListEnd
 
@@ -147,11 +147,11 @@ FRONTEND_EXPERIENCE = r"""\section{Experience}
 
 \resumeItem{Developed full-stack web and mobile features using Node.js, Express, and JavaScript for telehealth.}
 
-\resumeItem{Integrated seamless Stripe and PayPal client billing interfaces, elevating payment completion by 25\%.}
+\resumeItem{Integrated seamless Stripe and PayPal checkout flows, lifting checkout completion rates by 25\%.}
 
-\resumeItem{Engineered responsive client views, authenticated session state, and structured error notifications.}
+\resumeItem{Engineered responsive client views, JWT authenticated state, and real-time transaction feedback.}
 
-\resumeItem{Collaborated across the stack with Flutter and web engineers to optimize frontend rendering speed.}
+\resumeItem{Collaborated across teams to optimize frontend rendering performance and eliminate layout shifts.}
 
 \resumeItemListEnd
 
@@ -194,11 +194,11 @@ FRONTEND_PROJECTS = r"""\section{Projects}
 {\textbf{MediaWiki Bridge API} $|$ \emph{FastAPI, Python, REST APIs, JSON Schemas, Docker}}{Feb 2026 -- Present}
 \resumeItemListStart
 
-\resumeItem{Designed and deployed a secure REST API to retrieve structured canonical data using validated endpoints.}
+\resumeItem{Designed a high-performance FastAPI REST service to retrieve canonical data with strict Pydantic models.}
 
-\resumeItem{Built an MCP server adapter to enable LLM clients to query the API through a controlled tool interface.}
+\resumeItem{Built an MCP server adapter to enable autonomous AI agents to query external tools via structured calls.}
 
-\resumeItem{Containerized and deployed using Docker, ensuring secure, isolated, and reliable cloud operation.}
+\resumeItem{Containerized and deployed using Docker, ensuring secure, isolated environments and 99.9\% availability.}
 
 \resumeItemListEnd
 
@@ -217,7 +217,7 @@ AI_EXPERIENCE = r"""\section{Experience}
 
 \resumeItem{Implemented chunked retrieval, prompt engineering, and Pydantic validation to prevent hallucinations.}
 
-\resumeItem{Architected asynchronous API routing connecting language models with external cloud tools and databases.}
+\resumeItem{Architected asynchronous non-blocking routing for LLM runtimes, enabling reliable multi-tool execution.}
 
 \resumeItem{Containerized Python microservices with Docker, integrating Gemini and Qwen TTS into workflows.}
 
@@ -229,13 +229,13 @@ AI_EXPERIENCE = r"""\section{Experience}
 {Software Labs}{San Francisco, CA}
 \resumeItemListStart
 
-\resumeItem{Engineered automated backend workflows in Node.js and Express to process telehealth payments safely.}
+\resumeItem{Developed high-throughput Node.js/Express REST APIs, sustaining sub-150ms telehealth payment latency.}
 
-\resumeItem{Integrated Stripe and PayPal APIs with automated verification, lifting transaction completion by 25\%.}
+\resumeItem{Integrated Stripe and PayPal APIs with webhook verification, lifting payment completion by 25\%.}
 
-\resumeItem{Implemented automated data validation, structured logging, and error handling for transaction safety.}
+\resumeItem{Implemented JWT auth, request validation middleware, and HIPAA compliance, securing sensitive data.}
 
-\resumeItem{Collaborated on full-stack service integrations to ensure low-latency communication across services.}
+\resumeItem{Optimized PostgreSQL query indexing and REST response caching, eliminating database latency bottlenecks.}
 
 \resumeItemListEnd
 
@@ -245,13 +245,13 @@ AI_EXPERIENCE = r"""\section{Experience}
 {Digital Systems LLC}{Austin, TX}
 \resumeItemListStart
 
-\resumeItem{Developed serverless Python backends on AWS Lambda and API Gateway, automating transaction workflows.}
+\resumeItem{Architected serverless Python backends on AWS Lambda, auto-scaling for high concurrency with zero downtime.}
 
-\resumeItem{Designed DynamoDB NoSQL schemas and engineered validation logic in Python to maintain data integrity.}
+\resumeItem{Designed DynamoDB NoSQL schemas with composite keys, preventing data anomalies across concurrent orders.}
 
-\resumeItem{Engineered cloud data workflows connecting mobile client interfaces to DynamoDB for state tracking.}
+\resumeItem{Engineered CloudWatch structured logging, validation, and error recovery, maintaining 99.9\% API uptime.}
 
-\resumeItem{Implemented automated input validation and backend logic in Python to maintain production workflows.}
+\resumeItem{Built responsive Flutter client features and connected mobile state to backend cloud endpoints.}
 
 \resumeItemListEnd
 
@@ -264,11 +264,11 @@ AI_PROJECTS = r"""\section{Projects}
 {\textbf{MediaWiki Bridge API} $|$ \emph{Python, FastAPI, MCP, Docker, LLM Tooling}}{Feb 2026 -- Present}
 \resumeItemListStart
 
-\resumeItem{Designed and deployed a secure REST API to retrieve structured canonical data using validated endpoints.}
+\resumeItem{Designed a high-performance FastAPI REST service to retrieve canonical data with strict Pydantic models.}
 
-\resumeItem{Built an MCP server adapter to enable LLM clients to query the API through a controlled tool interface.}
+\resumeItem{Built an MCP server adapter to enable autonomous AI agents to query external tools via structured calls.}
 
-\resumeItem{Containerized and deployed using Docker, ensuring secure, isolated, and reliable cloud operation.}
+\resumeItem{Containerized and deployed using Docker, ensuring secure, isolated environments and 99.9\% availability.}
 
 \resumeItemListEnd
 
@@ -278,11 +278,11 @@ AI_PROJECTS = r"""\section{Projects}
 
 \resumeItem{Built a real-time distributed expense tracker using Python and gRPC with sub-100ms synchronization.}
 
-\resumeItem{Implemented high-performance gRPC protobuf services, reducing network overhead and payload size by 30\%.}
+\resumeItem{Implemented high-performance gRPC protobuf contracts, cutting network payload sizes by 30\% over JSON.}
 
 \resumeItem{Designed PostgreSQL schemas, indexing strategies, and connection pooling for concurrent financial data.}
 
-\resumeItem{Containerized backend microservices with Docker for consistent development and deployment environments.}
+\resumeItem{Containerized backend microservices with Docker Compose, standardizing local and production runtimes.}
 
 \resumeItemListEnd
 

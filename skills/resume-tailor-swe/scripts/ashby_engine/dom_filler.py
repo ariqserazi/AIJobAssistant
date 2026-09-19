@@ -13,11 +13,14 @@ try:
     sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     from question_logger import log_discovered_question
     from config_loader import load_config
+    from ai_form_solver import solve_field_with_ai
 except Exception:
     def log_discovered_question(*args, **kwargs):
         pass
     def load_config():
         return {}
+    def solve_field_with_ai(*args, **kwargs):
+        return None
 
 
 class DOMFiller:
@@ -32,28 +35,27 @@ class DOMFiller:
 
         uploaded = False
         for fi in file_inputs:
-            context_txt = fi.evaluate('''el => {
-                let p1 = el.parentElement ? el.parentElement.innerText : "";
-                let p2 = el.parentElement && el.parentElement.parentElement ? el.parentElement.parentElement.innerText : "";
-                let p3 = el.parentElement && el.parentElement.parentElement && el.parentElement.parentElement.parentElement ? el.parentElement.parentElement.parentElement.innerText : "";
-                return [p1, p2, p3].join(" --- ").toLowerCase();
+            fe_txt = fi.evaluate('''el => {
+                const entry = el.closest('[class*="field-entry"], fieldset, [data-field-path]') || el.parentElement?.parentElement || el.parentElement;
+                return entry ? entry.innerText.toLowerCase() : "";
             }''')
 
             # Skip the top "Autofill from resume" dropzone
-            if "autofill from resume" in context_txt:
+            if "autofill" in fe_txt and "autofill from resume" in fe_txt:
                 print("  [File Upload] Skipping top autofill dropzone.", flush=True)
                 continue
 
-            if "cover letter" in context_txt and "resume" not in context_txt and "portfolio" not in context_txt:
+            if "cover letter" in fe_txt and "resume" not in fe_txt and "portfolio" not in fe_txt:
                 print("  [File Upload] Skipping optional cover letter upload.", flush=True)
                 continue
 
-            if "transcript" in context_txt:
+            if "transcript" in fe_txt:
                 _cfg = load_config()
                 transcript_path = _cfg.get("transcript_pdf", "")
                 if transcript_path and os.path.exists(transcript_path):
                     try:
                         fi.set_input_files(transcript_path)
+                        time.sleep(2.0)
                         uploaded = True
                         print(f"  [File Upload] Uploaded Transcript PDF: {os.path.basename(transcript_path)}", flush=True)
                         continue
@@ -62,19 +64,15 @@ class DOMFiller:
 
             try:
                 fi.set_input_files(resume_pdf_path)
+                time.sleep(2.0)
                 uploaded = True
-                label = "Resume" if "resume" in context_txt else ("Portfolio" if "portfolio" in context_txt else "Document")
+                label = "Resume" if "resume" in fe_txt else ("Portfolio" if "portfolio" in fe_txt else "Document")
                 print(f"  [File Upload] Uploaded PDF to '{label}' file input: {os.path.basename(resume_pdf_path)}", flush=True)
             except Exception as e:
                 print(f"  [File Upload] Upload notice: {e}", flush=True)
 
         if uploaded:
-            # Wait for Ashby's background CV autofill parser
-            try:
-                page.wait_for_selector(":has-text('Autofill completed!')", timeout=5000)
-            except Exception:
-                time.sleep(2.5)
-            time.sleep(0.5)
+            time.sleep(1.0)
 
         return uploaded
 
@@ -88,13 +86,22 @@ class DOMFiller:
             cb.scroll_into_view_if_needed()
             toggle_btn = field.container.query_selector("button[class*='toggleButton'], button[aria-label*='toggle' i]")
             if toggle_btn:
-                toggle_btn.click()
+                try:
+                    toggle_btn.click(force=True, timeout=2500)
+                except Exception:
+                    toggle_btn.evaluate("e => e.click()")
             else:
-                cb.click()
+                try:
+                    cb.click(force=True, timeout=2500)
+                except Exception:
+                    cb.evaluate("e => e.click()")
             time.sleep(0.3)
 
             # Clear any prefilled stale text
-            cb.click()
+            try:
+                cb.click(force=True, timeout=2500)
+            except Exception:
+                cb.evaluate("e => e.focus()")
             page.keyboard.press("Meta+a")
             page.keyboard.press("Backspace")
             time.sleep(0.2)
@@ -126,7 +133,10 @@ class DOMFiller:
                                 break
                 if rutgers_opt and rutgers_opt.is_visible():
                     opt_txt = rutgers_opt.inner_text().strip()
-                    rutgers_opt.click()
+                    try:
+                        rutgers_opt.click(force=True, timeout=2500)
+                    except Exception:
+                        rutgers_opt.evaluate("e => e.click()")
                     print(f"    [Combobox] {field.title[:30]} -> {opt_txt}", flush=True)
                     return True
                 else:
@@ -140,7 +150,10 @@ class DOMFiller:
                 loc_opt = page.locator("[role='option']:has-text('Piscataway'), [role='option']:has-text('New Jersey'), [role='option']:has-text('New York')").first
                 if loc_opt.is_visible():
                     opt_txt = loc_opt.inner_text().strip()
-                    loc_opt.click()
+                    try:
+                        loc_opt.click(force=True, timeout=2500)
+                    except Exception:
+                        loc_opt.evaluate("e => e.click()")
                     print(f"    [Combobox] {field.title[:30]} -> {opt_txt}", flush=True)
                     return True
 
@@ -150,7 +163,10 @@ class DOMFiller:
                 time.sleep(0.6)
                 cs_opt = page.locator("[role='option']:has-text('Computer Science')").first
                 if cs_opt.is_visible():
-                    cs_opt.click()
+                    try:
+                        cs_opt.click(force=True, timeout=2500)
+                    except Exception:
+                        cs_opt.evaluate("e => e.click()")
                     print(f"    [Combobox] {field.title[:30]} -> Computer Science", flush=True)
                     return True
 
@@ -160,7 +176,10 @@ class DOMFiller:
                 time.sleep(0.6)
                 yr_opt = page.locator(f"[role='option']:has-text('{val}'), [role='option']:has-text('2027'), [role='option']:has-text('2028')").first
                 if yr_opt.is_visible():
-                    yr_opt.click()
+                    try:
+                        yr_opt.click(force=True, timeout=2500)
+                    except Exception:
+                        yr_opt.evaluate("e => e.click()")
                     print(f"    [Combobox] {field.title[:30]} -> {val}", flush=True)
                     return True
 
@@ -169,7 +188,10 @@ class DOMFiller:
             time.sleep(0.5)
             opt = page.locator(f"[role='option']:has-text('{val}'), [class*='option']:has-text('{val}')").first
             if opt.is_visible():
-                opt.click()
+                try:
+                    opt.click(force=True, timeout=2500)
+                except Exception:
+                    opt.evaluate("e => e.click()")
                 print(f"    [Combobox] {field.title[:30]} -> {val}", flush=True)
                 return True
 
@@ -180,7 +202,10 @@ class DOMFiller:
             first_opt = page.locator("[role='option']").first
             if first_opt.is_visible():
                 first_txt = first_opt.inner_text().strip()
-                first_opt.click()
+                try:
+                    first_opt.click(force=True, timeout=2500)
+                except Exception:
+                    first_opt.evaluate("e => e.click()")
                 print(f"    [Combobox] {field.title[:30]} -> {first_txt} (first option)", flush=True)
                 return True
 
@@ -191,6 +216,12 @@ class DOMFiller:
         except Exception as e:
             print(f"    [Combobox] Notice on {field.title[:30]}: {e}", flush=True)
             return False
+        finally:
+            try:
+                time.sleep(0.2)
+                page.keyboard.press("Escape")
+            except Exception:
+                pass
 
 
     @staticmethod
@@ -208,7 +239,13 @@ class DOMFiller:
                 if num_val:
                     val = num_val
             el.scroll_into_view_if_needed()
-            el.click()
+            try:
+                el.click(force=True, timeout=2500)
+            except Exception:
+                try:
+                    el.evaluate("e => e.focus()")
+                except Exception:
+                    pass
 
             if input_type == "tel" or any(k in tl for k in ["phone", "mobile", "cell"]):
                 # Use native keyboard keystrokes to ensure mask and React listeners trigger cleanly
@@ -216,11 +253,19 @@ class DOMFiller:
                 page.keyboard.press("Backspace")
                 clean_phone = "".join(c for c in val if c.isdigit())
                 page.keyboard.type(clean_phone if len(clean_phone) == 10 else val, delay=20)
+            elif input_type == "date" or any(k in tl for k in ["graduation date", "grad date", "date"]) or "pick date" in (el.get_attribute("placeholder") or "").lower():
+                page.keyboard.press("Meta+a")
+                page.keyboard.press("Backspace")
+                page.keyboard.type(val, delay=25)
+                time.sleep(0.2)
+                page.keyboard.press("Enter")
             else:
                 el.fill(val)
 
             try:
                 el.evaluate("e => { e.dispatchEvent(new Event('input', {bubbles: true})); e.dispatchEvent(new Event('change', {bubbles: true})); e.dispatchEvent(new Event('blur', {bubbles: true})); }")
+                page.keyboard.press("Escape")
+                page.evaluate("() => { document.querySelectorAll('.react-datepicker-popper, .react-datepicker, [data-floating-ui-portal]').forEach(e => e.remove()); }")
             except Exception:
                 pass
             print(f"    [Text] {field.title[:30]} -> {val[:35]}", flush=True)
@@ -237,7 +282,13 @@ class DOMFiller:
         el = field.input_element
         try:
             el.scroll_into_view_if_needed()
-            el.click()
+            try:
+                el.click(force=True, timeout=2500)
+            except Exception:
+                try:
+                    el.evaluate("e => e.focus()")
+                except Exception:
+                    pass
             el.fill(val)
             try:
                 el.evaluate("e => { e.dispatchEvent(new Event('input', {bubbles: true})); e.dispatchEvent(new Event('change', {bubbles: true})); e.dispatchEvent(new Event('blur', {bubbles: true})); }")
@@ -259,10 +310,14 @@ class DOMFiller:
         import re
 
         try:
+            try:
+                page.evaluate("() => { document.querySelectorAll('.react-datepicker-popper, .react-datepicker, [data-floating-ui-portal]').forEach(e => { if (e !== document.activeElement && !e.contains(document.activeElement)) e.remove(); }); }")
+            except Exception:
+                pass
             # 1. First priority: Real radio inputs (input[type='radio'])
             radios = container.query_selector_all("input[type='radio']")
             if radios:
-                val_words = [w for w in val_lower.split() if len(w) >= 4]
+                best_match = None
                 for r in radios:
                     parent = r.evaluate_handle("el => el.closest('.ashby-application-form-input-radio-group-option') || el.closest('[class*=\"radio-group-option\"]') || el.closest('[class*=\"option\"]') || el.closest('label') || el.parentElement?.parentElement || el.parentElement")
                     txt = parent.as_element().inner_text().strip().lower() if parent.as_element() else ""
@@ -272,6 +327,7 @@ class DOMFiller:
                         if lbl:
                             txt = lbl.inner_text().strip().lower()
 
+                    # Strict guards against semantic traps
                     if val_lower == "male" and ("female" in txt or txt == "female"):
                         continue
                     if val_lower == "asian" and ("mixed" in txt or "multiple" in txt):
@@ -280,39 +336,86 @@ class DOMFiller:
                         continue
                     if val_lower == "no" and txt.startswith("yes"):
                         continue
+                    # Veteran status guards: never match "identify as one or more" when target is "not a protected veteran"
+                    if "not" in val_lower and ("not" not in txt or "identify as one" in txt or "listed above" in txt):
+                        continue
+                    if "not" not in val_lower and "not" in txt:
+                        continue
+                    if "decline" not in val_lower and "decline" in txt:
+                        continue
 
-                    is_match = False
+                    # Exact match
                     if val_lower == txt:
-                        is_match = True
-                    elif val_lower in ["yes", "no"] and (txt.startswith(val_lower) or re.search(r'\b' + val_lower + r'\b', txt)):
-                        is_match = True
-                    elif len(val_lower) >= 3 and (val_lower in txt or txt in val_lower):
-                        is_match = True
-                    elif val_words and any(w in txt for w in val_words):
-                        is_match = True
+                        best_match = (r, parent, rid, txt)
+                        break
+                    # High confidence substring match
+                    if val_lower in txt or txt in val_lower:
+                        if not best_match:
+                            best_match = (r, parent, rid, txt)
 
-                    if is_match:
-                        r.scroll_into_view_if_needed()
-                        if not r.is_checked() or force_reclick:
-                            try:
-                                r.check(force=True)
-                            except Exception:
-                                pass
-                            if rid:
-                                lbl = container.query_selector(f"label[for='{rid}']")
-                                if lbl:
-                                    try:
-                                        lbl.click(force=True)
-                                    except Exception:
-                                        pass
-                            try:
-                                r.evaluate("el => { const s = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'checked').set; if (s) s.call(el, true); el.dispatchEvent(new Event('input', {bubbles: true})); el.dispatchEvent(new Event('change', {bubbles: true})); }")
-                            except Exception:
-                                pass
-                            print(f"    [Radio] {field.title[:30]} -> {val} (checked input)", flush=True)
-                        else:
-                            print(f"    [Radio] {field.title[:30]} -> {val} (already checked)", flush=True)
+                if best_match:
+                    r, parent, rid, txt = best_match
+                    is_chk = False
+                    try:
+                        is_chk = r.is_checked()
+                    except Exception:
+                        pass
+
+                    # If already checked, never re-click (which unchecks Ashby radios!)
+                    if is_chk and not force_reclick:
+                        print(f"    [Radio] {field.title[:30]} -> {val} (already checked)", flush=True)
                         return True
+
+                    r.scroll_into_view_if_needed()
+                    time.sleep(0.1)
+
+                    loc_target = None
+                    if rid:
+                        try:
+                            loc_target = page.locator(f"label[for='{rid}']").first
+                        except Exception:
+                            pass
+                    if not loc_target or not loc_target.is_visible():
+                        loc_target = page.locator("label").filter(has_text=re.compile(re.escape(txt), re.I)).first
+                    if not loc_target or not loc_target.is_visible():
+                        loc_target = page.locator("[class*='radio-group-option']").filter(has_text=re.compile(re.escape(txt), re.I)).first
+
+                    use_mouse_env = os.environ.get("USE_MOUSE", "").lower() in ["true", "1", "yes"]
+                    is_custom_question = len(field.options) > 2 or any(k in field.title.lower() for k in ["why", "how", "what", "which", "gravity", "orbit", "astronaut", "physics"])
+
+                    if loc_target and loc_target.is_visible():
+                        loc_target.scroll_into_view_if_needed()
+                        time.sleep(0.15)
+                        if use_mouse_env:
+                            try:
+                                from .cv_mouse import click_element_cv
+                            except Exception:
+                                try:
+                                    from cv_mouse import click_element_cv
+                                except Exception:
+                                    from cv_mouse_fallback import click_element_cv
+                            print(f"    [CV Mouse] Gliding physical OS mouse to click radio option: '{txt[:45]}'...", flush=True)
+                            click_element_cv(page, locator=loc_target)
+                        else:
+                            try:
+                                loc_target.click(force=True, timeout=2500)
+                            except Exception:
+                                try:
+                                    loc_target.evaluate("el => el.click()")
+                                except Exception:
+                                    pass
+                    else:
+                        r.check(force=True)
+
+                    time.sleep(0.2)
+                    try:
+                        if not r.is_checked():
+                            r.check(force=True)
+                    except Exception:
+                        pass
+
+                    print(f"    [Radio] {field.title[:30]} -> {val} (checked input)", flush=True)
+                    return True
 
             # 2. Second priority: Button groups with data-option (e.g. Yes/No button toggles)
             data_btns = container.query_selector_all("button[data-option]")
@@ -383,7 +486,10 @@ class DOMFiller:
                 # Fill School
                 school_inp = ec.query_selector("input[placeholder*='school' i], input[placeholder*='Search schools' i]")
                 if school_inp and not school_inp.input_value().strip():
-                    school_inp.click()
+                    try:
+                        school_inp.click(force=True, timeout=2500)
+                    except Exception:
+                        school_inp.evaluate("e => e.focus()")
                     school_inp.fill("Rutgers")
                     time.sleep(0.8)
                     rutgers_opt = None
@@ -399,20 +505,29 @@ class DOMFiller:
                                 rutgers_opt = opt
                                 break
                     if rutgers_opt and rutgers_opt.is_visible():
-                        rutgers_opt.click()
+                        try:
+                            rutgers_opt.click(force=True, timeout=2500)
+                        except Exception:
+                            rutgers_opt.evaluate("e => e.click()")
                         print("    [Education] School -> Rutgers, The State University of New Jersey (New Brunswick)", flush=True)
                 
                 # Fill Degree / Field of Study
                 degree_inp = ec.query_selector("input[placeholder*='degree' i], input[placeholder*='Bachelor' i]")
                 if degree_inp and not degree_inp.input_value().strip():
-                    degree_inp.click()
+                    try:
+                        degree_inp.click(force=True, timeout=2500)
+                    except Exception:
+                        degree_inp.evaluate("e => e.focus()")
                     degree_inp.fill("Master of Science in Computer Science")
                     degree_inp.evaluate("e => { e.dispatchEvent(new Event('input', {bubbles: true})); e.dispatchEvent(new Event('change', {bubbles: true})); e.dispatchEvent(new Event('blur', {bubbles: true})); }")
                     print("    [Education] Degree -> Master of Science in Computer Science", flush=True)
 
                 study_inp = ec.query_selector("input[placeholder*='computer science' i], input[placeholder*='field of study' i], input[placeholder*='major' i]")
                 if study_inp and not study_inp.input_value().strip():
-                    study_inp.click()
+                    try:
+                        study_inp.click(force=True, timeout=2500)
+                    except Exception:
+                        study_inp.evaluate("e => e.focus()")
                     study_inp.fill("Computer Science")
                     study_inp.evaluate("e => { e.dispatchEvent(new Event('input', {bubbles: true})); e.dispatchEvent(new Event('change', {bubbles: true})); e.dispatchEvent(new Event('blur', {bubbles: true})); }")
                     print("    [Education] Field of Study -> Computer Science", flush=True)
@@ -450,7 +565,9 @@ class DOMFiller:
                         continue
 
                     is_match = False
-                    if t_val == txt:
+                    if len(checkboxes) == 1:
+                        is_match = True
+                    elif t_val == txt:
                         is_match = True
                     elif re.search(r'\b' + re.escape(t_val) + r'\b', txt):
                         is_match = True
@@ -458,15 +575,59 @@ class DOMFiller:
                         is_match = True
 
                     if is_match:
-                        if force_recheck or not cb.is_checked():
-                            cb.scroll_into_view_if_needed()
-                            cb.check(force=True)
-                            try:
-                                cb.evaluate("e => { e.dispatchEvent(new Event('input', {bubbles: true})); e.dispatchEvent(new Event('change', {bubbles: true})); }")
-                            except Exception:
-                                pass
+                        is_already = False
+                        try:
+                            is_already = cb.is_checked()
+                        except Exception:
+                            pass
+                        if is_already and not force_recheck:
                             clicked = True
-                            print(f"    [Checkbox] Checked: {txt[:40]}", flush=True)
+                            print(f"    [Checkbox] Already checked: {txt[:40] if txt else field.title[:30]}", flush=True)
+                            break
+
+                        loc_target = None
+                        if cid:
+                            loc_target = page.locator(f"label[for='{cid}']").first
+                        if not loc_target or not loc_target.is_visible():
+                            loc_target = page.locator("label").filter(has_text=re.compile(re.escape(txt), re.I)).first
+                        if not loc_target or not loc_target.is_visible():
+                            loc_target = page.locator(".ashby-application-form-input-checkbox-group-option, [class*='checkbox-group-option']").filter(has_text=re.compile(re.escape(txt), re.I)).first
+
+                        use_mouse_env = os.environ.get("USE_MOUSE", "").lower() in ["true", "1", "yes"]
+
+                        if loc_target and loc_target.is_visible():
+                            loc_target.scroll_into_view_if_needed()
+                            time.sleep(0.15)
+                            if use_mouse_env:
+                                try:
+                                    from .cv_mouse import click_element_cv
+                                except Exception:
+                                    try:
+                                        from cv_mouse import click_element_cv
+                                    except Exception:
+                                        from cv_mouse_fallback import click_element_cv
+                                print(f"    [CV Mouse] Gliding physical OS mouse to click checkbox: '{txt[:35]}'...", flush=True)
+                                click_element_cv(page, locator=loc_target)
+                            else:
+                                try:
+                                    loc_target.click(force=True, timeout=2500)
+                                except Exception:
+                                    try:
+                                        loc_target.evaluate("el => el.click()")
+                                    except Exception:
+                                        pass
+                        else:
+                            cb.check(force=True)
+
+                        time.sleep(0.2)
+                        try:
+                            if not cb.is_checked():
+                                cb.check(force=True)
+                        except Exception:
+                            pass
+
+                        clicked = True
+                        print(f"    [Checkbox] Checked: {txt[:40] if txt else field.title[:30]}", flush=True)
                         break
             return clicked
         except Exception as e:
@@ -488,30 +649,44 @@ class DOMFiller:
             ans_val = ""
             if f.field_type == "text":
                 val = FieldMatcher.match_text_input(f.title, company, role)
+                if not val and f.is_required:
+                    val = solve_field_with_ai(f.title, "text", company=company, role=role)
                 ans_val = val
                 if val and (not f.current_value.strip() or f.current_value.strip() != val):
                     cls.fill_text(page, f, val)
 
             elif f.field_type == "textarea":
                 val = FieldMatcher.match_textarea(f.title, company, role)
+                if not val and f.is_required:
+                    val = solve_field_with_ai(f.title, "textarea", company=company, role=role)
                 ans_val = val
                 if val and not f.current_value.strip():
                     cls.fill_textarea(page, f, val)
 
             elif f.field_type == "combobox":
                 val = FieldMatcher.match_combobox(f.title, f.options)
+                if not val:
+                    val = solve_field_with_ai(f.title, "combobox", options=f.options, company=company, role=role)
                 ans_val = val
                 if val and (not f.current_value.strip() or f.current_value.strip() != val):
                     cls.fill_combobox(page, f, val)
 
             elif f.field_type == "radio":
                 val = FieldMatcher.match_radio_or_toggle(f.title, f.options)
+                if not val:
+                    val = solve_field_with_ai(f.title, "radio", options=f.options, company=company, role=role)
                 ans_val = val
                 if val:
                     cls.fill_radio(page, f, val)
 
             elif f.field_type == "checkbox":
                 vals = FieldMatcher.match_checkbox(f.title, f.options)
+                if not vals:
+                    ai_ans = solve_field_with_ai(f.title, "checkbox", options=f.options, company=company, role=role)
+                    if ai_ans == "CHECK_ALL":
+                        vals = f.options if f.options else ["agree"]
+                    elif ai_ans:
+                        vals = [ai_ans]
                 ans_val = ", ".join(vals) if vals else ""
                 if vals:
                     cls.fill_checkbox(page, f, vals)
@@ -573,7 +748,13 @@ class DOMFiller:
                     btn = c.query_selector(f"button[data-option='{opt_val}']")
                     if btn and btn.get_attribute("aria-pressed") != "true":
                         btn.scroll_into_view_if_needed()
-                        btn.click()
+                        try:
+                            btn.click(force=True, timeout=2500)
+                        except Exception:
+                            try:
+                                btn.evaluate("e => e.click()")
+                            except Exception:
+                                pass
                         unfilled_count += 1
                         time.sleep(0.2)
             except Exception:
@@ -642,6 +823,13 @@ class DOMFiller:
 
         # 3. Comprehensive Form Inspection: check what is still unfilled or unchecked
         fixed = 0
+
+        # Check if Resume was reported missing in the banner
+        if any("resume" in ml for ml in missing_labels):
+            print("  [Diagnostic Fix] Banner reported missing Resume -> re-uploading resume PDF...", flush=True)
+            if cls.upload_resume(page, resume_pdf_path):
+                fixed += 1
+
         fields = DOMScanner.scan_page(page)
         for f in fields:
             container_html = f.container.evaluate("el => el.outerHTML.toLowerCase()")
@@ -702,8 +890,10 @@ class DOMFiller:
             elif f.field_type == "radio":
                 if is_flagged or is_empty:
                     val = FieldMatcher.match_radio_or_toggle(f.title, f.options)
+                    if not val:
+                        val = solve_field_with_ai(f.title, "radio", f.options, company, role)
                     if not val and (banner_match or is_flagged) and f.options:
-                        val = next((opt for opt in f.options if any(p in opt.lower() for p in ["job board", "linkedin", "internet", "yes", "agree", "true", "40"])), None)
+                        val = next((opt for opt in f.options if any(p in opt.lower() for p in ["job board", "linkedin", "internet", "yes", "agree", "true"])), None)
                         if not val:
                             val = next((opt for opt in f.options if not any(neg in opt.lower() for neg in ["employee", "referral", "agency", "internal", "no", "cannot", "false"])), f.options[0])
                     if val:

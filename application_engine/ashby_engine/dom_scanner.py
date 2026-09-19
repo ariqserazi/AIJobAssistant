@@ -185,11 +185,18 @@ class DOMScanner:
                 for cb in checkboxes:
                     parent = cb.evaluate_handle("el => el.closest('.ashby-application-form-input-checkbox-group-option') || el.closest('[class*=\"checkbox-group-option\"]') || el.closest('[class*=\"option\"]') || el.closest('label') || el.parentElement?.parentElement || el.parentElement")
                     txt = parent.as_element().inner_text().strip() if parent.as_element() else ""
+                    cid = cb.get_attribute("id")
+                    if not txt and cid:
+                        lbl = fe.query_selector(f"label[for='{cid}']")
+                        if lbl:
+                            txt = lbl.inner_text().strip()
+                    if not txt and cb.get_attribute("name"):
+                        txt = cb.get_attribute("name").strip()
                     if txt:
                         options.append(txt)
                     try:
                         if cb.is_checked():
-                            selected_vals.append(txt)
+                            selected_vals.append(txt or "checked")
                     except Exception:
                         pass
                 fields.append(FormField(
