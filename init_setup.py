@@ -594,28 +594,58 @@ def setup_ollama(model: str = "qwen3:4b-instruct") -> bool:
         return False
 
 
+def clean_file_path(p: str) -> str:
+    """Cleans terminal dragged path or user input string."""
+    cleaned = p.strip().strip("'\"").strip()
+    cleaned = cleaned.replace(r"\ ", " ")
+    return cleaned
+
+
 def prompt_interactive() -> Dict[str, Any]:
     """Interactively prompts user in terminal for profile details or resume PDF."""
     print("\n👋 Welcome to AIJobAssistant Setup Wizard!")
     data = {}
     
-    resume_path = input("📄 Have a Resume PDF? Enter path (or press Enter to fill manually): ").strip()
-    if resume_path and Path(resume_path).expanduser().exists():
-        full_path = str(Path(resume_path).expanduser().resolve())
-        print(f"\n🔍 Reading and extracting candidate profile from: {full_path}...")
-        try:
-            txt = extract_text_from_pdf(full_path)
-            extracted = parse_resume_data(txt, full_path)
-            print(f"  ✅ Found Candidate: {extracted.get('candidate_name', 'Unknown')}")
-            print(f"  ✅ Found Email: {extracted.get('candidate_email', 'Unknown')}")
-            print(f"  ✅ Found Phone: {extracted.get('phone', 'Unknown')}")
-            print(f"  ✅ Found School: {extracted.get('school_name', 'Unknown')}")
-            print(f"  ✅ Found Degree: {extracted.get('degree', 'Unknown')}")
-            print(f"  ✅ Found GPA: {extracted.get('gpa', 'Unknown')}")
-            print(f"  ✅ Found Preferred Lang: {extracted.get('preferred_language', 'Python')}")
-            data.update(extracted)
-        except Exception as e:
-            print(f"  ⚠️ Could not auto-parse PDF: {e}. Falling back to manual prompts.")
+    resume_input = input("📄 Please provide your Resume PDF path (drag & drop file or enter path): ").strip()
+    resume_path = clean_file_path(resume_input) if resume_input else ""
+
+    # If the user doesn't give a resume from the start, prompt them explicitly
+    if not resume_path:
+        print("\n⚠️ A resume PDF is strongly recommended! It automatically extracts your name, contact info,")
+        print("   education, GPA, and technical skills so you don't have to enter them manually.")
+        retry = input("📄 Please provide your Resume PDF path (or press Enter to configure manually): ").strip()
+        if retry:
+            resume_path = clean_file_path(retry)
+
+    if resume_path:
+        p_obj = Path(resume_path).expanduser()
+        if not p_obj.exists():
+            print(f"  ⚠️ Resume file not found at: {resume_path}")
+            retry2 = input("📄 Please enter the correct Resume PDF path (or press Enter to skip): ").strip()
+            if retry2:
+                resume_path = clean_file_path(retry2)
+                p_obj = Path(resume_path).expanduser()
+
+        if p_obj.exists():
+            full_path = str(p_obj.resolve())
+            print(f"\n🔍 Reading and extracting candidate profile from: {full_path}...")
+            try:
+                txt = extract_text_from_pdf(full_path)
+                extracted = parse_resume_data(txt, full_path)
+                print(f"  ✅ Found Candidate: {extracted.get('candidate_name', 'Unknown')}")
+                print(f"  ✅ Found Email: {extracted.get('candidate_email', 'Unknown')}")
+                print(f"  ✅ Found Phone: {extracted.get('phone', 'Unknown')}")
+                print(f"  ✅ Found School: {extracted.get('school_name', 'Unknown')}")
+                print(f"  ✅ Found Degree: {extracted.get('degree', 'Unknown')}")
+                print(f"  ✅ Found GPA: {extracted.get('gpa', 'Unknown')}")
+                print(f"  ✅ Found Preferred Lang: {extracted.get('preferred_language', 'Python')}")
+                data.update(extracted)
+            except Exception as e:
+                print(f"  ⚠️ Could not auto-parse PDF: {e}. Falling back to manual prompts.")
+        else:
+            print("  ℹ️ Proceeding with manual candidate profile creation.")
+    else:
+        print("  ℹ️ No resume PDF provided. Proceeding with manual setup.")
 
     if not data.get("first_name"):
         first_name = input("1. First Name [Jane]: ").strip() or "Jane"

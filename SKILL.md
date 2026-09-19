@@ -25,19 +25,25 @@ Before running any application scripts or generating tailored resumes:
 2. Check if `config.json` contains active candidate information or still has default placeholder values (`"Jane Doe"`, `"jane.doe@example.com"`, etc.).
 3. Check if the user has a baseline resume (either PDF in `references/sample_resume.pdf`, a path in `config.json`, or a LaTeX template in `references/sample_resume_latex.txt`).
 
-**If `config.json` is missing or contains placeholder values:**
-You MUST NOT submit dummy applications. Instead, immediately pause and provide clear, friendly instructions to the user:
-- **Welcome Message**:
-  > "Welcome to AIJobAssistant! Before we start applying to jobs or tailoring your resumes, I need your candidate profile so that every job application, compliance bubble, and custom answer is 100% accurate and truthful to you."
-- **Present Setup Options**:
-  - **Option 1 (Provide Resume PDF - Recommended & Fastest)**:
-    Ask the candidate: *"Please provide the path to your resume PDF (or drop your resume PDF into this project)."*
-    Once the candidate provides their resume PDF path:
+**If the user has not provided a resume PDF from the start (or `config.json` contains placeholder values):**
+You MUST NOT submit dummy applications or use placeholder data. If the user did not provide a resume from the start, **YOU MUST IMMEDIATELY PROMPT THE USER TO PROVIDE THEIR RESUME PDF:**
+- **Prompt to User**:
+  > "👋 Welcome! Before we start applying to jobs or tailoring resumes, I need your resume.
+  >
+  > 📄 **Please provide the path to your Resume PDF (or drag and drop your resume file into this chat).**
+  >
+  > I will automatically read your resume to extract your contact info, education, GPA, work experience, and technical skills so your profile and application engine are completely configured in seconds!"
+
+- **Resume Onboarding Flow**:
+  - Once the candidate provides their resume PDF path:
     1. Read and parse the resume PDF directly (or run `python init_setup.py --resume-pdf /path/to/resume.pdf`).
     2. Confirm extracted fields (Name, email, phone, school, GPA, links).
-    3. Ask the only 2 questions not on a resume:
+    3. Ask the essential questions not on a resume:
        - Work authorization: U.S. Citizen / require visa sponsorship? (Defaults to US Citizen / No sponsorship).
        - Workday standard account password (optional).
+       - AI Form Reasoner:
+         * **Ollama Local AI** (100% Free / 0 Credit Cost — runs locally, installs dependencies automatically)
+         * **Current AI Chat** (Uses this active chat assistant directly — no local models to download)
     *All local files (`config.json`, `application_profile.md`, directories) will be generated automatically!*
   - **Option 2 (Interactive Chat Questions)**:
     If they do not have a PDF ready, ask them for their details in chat and run `python init_setup.py --json '<USER_ANSWERS_JSON>'`.
