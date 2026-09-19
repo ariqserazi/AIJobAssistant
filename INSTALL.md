@@ -48,7 +48,7 @@ From that single PDF, it automatically builds:
 > [!TIP]
 > **Using an AI Agent (Antigravity, Cursor, Claude Code, etc.)?**
 > You can simply drop your resume PDF into chat or ask your agent:
-> *"Here is my resume: `path/to/resume.pdf` — please set up my job search profile"*
+> *"Here is my resume: `path/to/resume.pdf`, please set up my job search profile"*
 > The agent will parse your resume and build all necessary files on your machine in seconds!
 
 > [!NOTE]
@@ -62,9 +62,9 @@ When applying to jobs on ATS platforms, applications frequently present custom, 
 
 You have two options:
 
-#### Option 1: Ollama Local AI (Recommended — 0 Credit Cost)
+#### Option 1: Ollama Local AI (Recommended: 0 Credit Cost)
 * **What it does**: Runs a local reasoning model (`qwen3:4b-instruct`) directly on your machine.
-* **Why choose it**: **100% Free** — consumes **0 credits or tokens** from your AI chat assistant, enabling unlimited automated applications.
+* **Why choose it**: **100% Free**: consumes **0 credits or tokens** from your AI chat assistant, enabling unlimited automated applications.
 * **Setup**: Run setup with `--setup-ollama` (or choose Option 1 in interactive mode):
   ```bash
   python init_setup.py --setup-ollama

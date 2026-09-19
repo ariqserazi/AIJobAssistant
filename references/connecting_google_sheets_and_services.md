@@ -37,7 +37,7 @@ If you want your applications to be automatically logged to a Google Sheet, foll
 6. Select **JSON** and click **Create**.
 7. A `.json` key file will download to your computer. Save it in a safe location, for example:
    * `~/.config/gcloud/service_account.json`, or
-   * Inside your project folder (e.g. `./credentials.json` — note: this file is automatically gitignored).
+   * Inside your project folder (e.g. `./credentials.json`, note that this file is automatically gitignored).
 
 ### Step 3: Create Your Google Sheet & Share It
 1. Open [Google Sheets](https://sheets.new) and create a new spreadsheet.
