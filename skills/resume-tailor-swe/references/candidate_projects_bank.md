@@ -29,7 +29,7 @@ This document serves as the canonical project repository for tailoring ATS-compl
 ```
 
 ### Free-Text Application Narrative (Strictly Zero Dashes)
-> "I built a parallel browser automation engine in Python using Playwright to handle high volume web tasks. The system spins up five concurrent Chromium instances, using modulo task partitioning and POSIX file locks so the workers never collide on the same job. For forms with dynamic or custom schemas, it passes the fields to an on device 4B model running in Ollama to solve inputs locally without paying API fees. It also hooks into Chrome through macOS ScriptingBridge to extract 2FA codes silently in the background. The system has completed over one thousand multi step runs across Workday, Greenhouse, and Lever without concurrency bugs."
+> "Developed a parallel browser automation engine in Python using Playwright to handle high volume web tasks. Spun up five concurrent Chromium instances using modulo task partitioning and POSIX file locks to prevent worker collisions. Routed dynamic form inputs to an on device 4B model running in Ollama for local schema resolution with zero API cost, and integrated macOS ScriptingBridge to extract 2FA codes silently in the background. Completed over one thousand multi step runs across Workday, Greenhouse, and Lever without concurrency bugs."
 
 ---
 
@@ -56,7 +56,7 @@ This document serves as the canonical project repository for tailoring ATS-compl
 ```
 
 ### Free-Text Application Narrative (Strictly Zero Dashes)
-> "I built Trackwise, a distributed real time financial tracking platform using Python, gRPC, PostgreSQL, and Docker. I designed strict protocol buffer contracts to replace standard JSON, reducing network payload sizes by thirty percent and achieving sub 100 millisecond synchronization across mobile and web clients. I structured relational PostgreSQL schemas with composite indexes and connection pooling to ensure strict ACID transactional guarantees for concurrent ledger entries."
+> "Engineered a distributed real time expense tracker featuring a Python gRPC backend and a Flutter frontend. Wrote Protocol Buffer contracts over HTTP/2 to reduce network payload sizes by 30 percent and maintain sub 100 millisecond synchronization across clients. Designed PostgreSQL schemas with composite indexes and connection pooling to keep concurrent ledger entries strictly consistent."
 
 ---
 
@@ -82,7 +82,7 @@ This document serves as the canonical project repository for tailoring ATS-compl
 ```
 
 ### Free-Text Application Narrative (Strictly Zero Dashes)
-> "I developed the MediaWiki Bridge API, a high throughput microservice built with Python and FastAPI to extract and normalize structured canonical data. I implemented strict Pydantic v2 schemas for runtime validation and created a custom Model Context Protocol adapter enabling external language models and AI agents to query structured data tools safely. The service is containerized using Docker with multi stage builds ensuring isolated production environments and high availability."
+> "Created a microservice in Python and FastAPI to extract and clean structured data for language models. Used Pydantic v2 to strictly validate query parameters and responses at runtime, and implemented a Model Context Protocol server adapter allowing AI agents to query the service directly as a tool. Containerized the application using multi stage Docker builds to keep image sizes small and environments consistent."
 
 ---
 
