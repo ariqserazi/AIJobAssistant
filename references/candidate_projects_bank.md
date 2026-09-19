@@ -21,10 +21,10 @@ This document serves as the canonical project repository for tailoring ATS-compl
 \resumeProjectHeading
 {\textbf{AIJobAssistant: Autonomous Agentic RPA Platform} $|$ \emph{Python, Playwright, Ollama, macOS IPC, GCP}}{Nov 2025 -- Present}
 \resumeItemListStart
-\resumeItem{Architected a 5-worker parallel browser automation engine using Python and Playwright, implementing disjoint task partitioning and POSIX file locks to execute high-throughput web automation workflows.}
-\resumeItem{Integrated an on-device local LLM (\texttt{qwen3:4b-instruct} via Ollama) to dynamically classify form schemas and reason through complex inputs with sub-second latency and 100\% cost reduction (\$0/token).}
-\resumeItem{Engineered an OS-level IPC integration using macOS \texttt{ScriptingBridge} to programmatically extract real-time 2FA and OTP verification codes from browser sessions without stealing window focus.}
-\resumeItem{Executed and verified over 1,000+ multi-step enterprise workflows across 4 distinct dynamic DOM architectures (Workday, Greenhouse, Lever, Ashby) with zero race conditions.}
+\resumeItem{Architected a 5 worker parallel browser automation engine using Python and Playwright, implementing disjoint task partitioning and POSIX file locks to execute high throughput web automation workflows.}
+\resumeItem{Integrated an on device local LLM (\texttt{qwen3:4b-instruct} via Ollama) to dynamically classify form schemas and reason through complex inputs with sub second latency and 100\% cost reduction (\$0/token).}
+\resumeItem{Engineered an OS level IPC integration using macOS \texttt{ScriptingBridge} to programmatically extract real time 2FA and OTP verification codes from browser sessions without stealing window focus.}
+\resumeItem{Executed and verified over 1,000+ multi step enterprise workflows across 4 distinct dynamic DOM architectures (Workday, Greenhouse, Lever, Ashby) with zero race conditions.}
 \resumeItemListEnd
 ```
 
@@ -48,8 +48,8 @@ This document serves as the canonical project repository for tailoring ATS-compl
 \resumeProjectHeading
 {\textbf{Trackwise} $|$ \emph{Python, gRPC, PostgreSQL, Docker, Flutter}}{Jan 2025 -- March 2025}
 \resumeItemListStart
-\resumeItem{Built a real-time distributed expense tracker using Python and gRPC with sub-100ms synchronization.}
-\resumeItem{Implemented high-performance gRPC protobuf contracts, cutting network payload sizes by 30\% over JSON.}
+\resumeItem{Built a real time distributed expense tracker using Python and gRPC with sub 100ms synchronization.}
+\resumeItem{Implemented high performance gRPC protobuf contracts, cutting network payload sizes by 30\% over JSON.}
 \resumeItem{Designed PostgreSQL schemas, indexing strategies, and connection pooling for concurrent financial data.}
 \resumeItem{Containerized backend microservices with Docker Compose, standardizing local and production runtimes.}
 \resumeItemListEnd
@@ -75,7 +75,7 @@ This document serves as the canonical project repository for tailoring ATS-compl
 \resumeProjectHeading
 {\textbf{MediaWiki Bridge API} $|$ \emph{Python, FastAPI, Docker, REST APIs, MCP}}{Feb 2026 -- Present}
 \resumeItemListStart
-\resumeItem{Designed a high-performance FastAPI REST service to retrieve canonical data with strict Pydantic models.}
+\resumeItem{Designed a high performance FastAPI REST service to retrieve canonical data with strict Pydantic models.}
 \resumeItem{Built an MCP server adapter to enable autonomous AI agents to query external tools via structured calls.}
 \resumeItem{Containerized and deployed using Docker, ensuring secure, isolated environments and 99.9\% availability.}
 \resumeItemListEnd
