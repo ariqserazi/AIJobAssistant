@@ -29,17 +29,20 @@ Before running any application scripts or generating tailored resumes:
 You MUST NOT submit dummy applications. Instead, immediately pause and provide clear, friendly instructions to the user:
 - **Welcome Message**:
   > "Welcome to AIJobAssistant! Before we start applying to jobs or tailoring your resumes, I need your candidate profile so that every job application, compliance bubble, and custom answer is 100% accurate and truthful to you."
-- **Present Two Setup Options**:
-  - **Option 1 (Interactive Setup in Chat - Recommended)**:
-    Ask the user the essential profile questions right in the chat:
-    1. Full Name, Email, Phone Number, and City/State location.
-    2. University, Degree/Major, Current GPA, and Expected Graduation Date (Month/Year).
-    3. Work Authorization (U.S. Citizen / Permanent Resident? Require visa sponsorship now or in the future?).
-    4. Profile Links: LinkedIn, GitHub, Portfolio website (if available).
-    5. Workday Password (optional) and preferred primary language (e.g. Python).
-    *Once the user provides their answers, automatically run `python init_setup.py --json '<USER_ANSWERS_JSON>'` to generate `config.json`, `application_profile.md`, compile their resume PDF, and initialize all working directories for them!*
-  - **Option 2 (Terminal Command)**:
-    Tell them: *"You can run `python init_setup.py` in your terminal to launch the interactive setup wizard, and tell me when you're ready!"*
+- **Present Setup Options**:
+  - **Option 1 (Provide Resume PDF - Recommended & Fastest)**:
+    Ask the candidate: *"Please provide the path to your resume PDF (or drop your resume PDF into this project)."*
+    Once the candidate provides their resume PDF path:
+    1. Read and parse the resume PDF directly (or run `python init_setup.py --resume-pdf /path/to/resume.pdf`).
+    2. Confirm extracted fields (Name, email, phone, school, GPA, links).
+    3. Ask the only 2 questions not on a resume:
+       - Work authorization: U.S. Citizen / require visa sponsorship? (Defaults to US Citizen / No sponsorship).
+       - Workday standard account password (optional).
+    *All local files (`config.json`, `application_profile.md`, directories) will be generated automatically!*
+  - **Option 2 (Interactive Chat Questions)**:
+    If they do not have a PDF ready, ask them for their details in chat and run `python init_setup.py --json '<USER_ANSWERS_JSON>'`.
+  - **Option 3 (Terminal Command)**:
+    Tell them: *"You can run `python init_setup.py --resume-pdf <path>` or `python init_setup.py` in your terminal, and tell me when you're ready!"*
 
 ### 2. Live Job Application Protocol
 When the user asks you to apply to jobs (e.g. "Apply to this job [URL]", "Apply to 10 internships", "Run the application engine"):

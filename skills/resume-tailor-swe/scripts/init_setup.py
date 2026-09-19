@@ -2,7 +2,14 @@
 """
 init_setup.py - AIJobAssistant & ResumeTailor Initialization Engine
 Builds all necessary local working files on a new machine or instance when personal
-information is provided by a candidate or AI copilot.
+information is provided by a candidate, a resume PDF, or an AI copilot.
+
+Supported Input Modes:
+1. Resume PDF: python init_setup.py --resume-pdf /path/to/resume.pdf
+   Automatically extracts candidate name, email, phone, location, links, school,
+   degree, GPA, graduation date, and skills directly from the PDF!
+2. Programmatic JSON: python init_setup.py --json '{"first_name": ...}'
+3. Interactive Wizard: python init_setup.py
 
 Generates:
 1. config.json (Local runtime candidate ground truth, strictly gitignored)
@@ -15,12 +22,13 @@ Generates:
 
 import os
 import sys
+import re
 import json
 import shutil
 import argparse
 import subprocess
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 DEFAULT_CONFIG_VALUES = {
     "candidate_name": "Jane Doe",
@@ -87,6 +95,156 @@ DEFAULT_CONFIG_VALUES = {
 }
 
 
+def extract_text_from_pdf(pdf_path: str) -> str:
+    """Extracts plain text from a PDF using macOS Quartz PDFKit, pypdf, or CLI tools."""
+    p = Path(pdf_path).resolve()
+    if not p.exists():
+        raise FileNotFoundError(f"Resume PDF not found at: {p}")
+
+    # Method 1: macOS native Quartz.PDFKit (zero dependencies on macOS)
+    try:
+        from Foundation import NSURL
+        import Quartz.PDFKit as PDFKit
+        url = NSURL.fileURLWithPath_(str(p))
+        doc = PDFKit.PDFDocument.alloc().initWithURL_(url)
+        if doc:
+            txt = doc.string()
+            if txt and len(txt.strip()) > 30:
+                return txt
+    except Exception:
+        pass
+
+    # Method 2: pypdf / pypdf2 if installed
+    try:
+        import pypdf
+        reader = pypdf.PdfReader(str(p))
+        txt = "".join([page.extract_text() or "" for page in reader.pages])
+        if txt and len(txt.strip()) > 30:
+            return txt
+    except Exception:
+        pass
+
+    # Method 3: pdfplumber if installed
+    try:
+        import pdfplumber
+        with pdfplumber.open(str(p)) as pdf:
+            txt = "".join([page.extract_text() or "" for page in pdf.pages])
+            if txt and len(txt.strip()) > 30:
+                return txt
+    except Exception:
+        pass
+
+    # Method 4: pdftotext CLI
+    try:
+        res = subprocess.run(["pdftotext", str(p), "-"], capture_output=True, text=True)
+        if res.returncode == 0 and len(res.stdout.strip()) > 30:
+            return res.stdout
+    except Exception:
+        pass
+
+    raise RuntimeError(f"Could not extract text from {p}. Ensure the PDF is not an image-only scan.")
+
+
+def parse_resume_data(text: str, pdf_path: str) -> Dict[str, Any]:
+    """Parses candidate profile fields directly from extracted resume text."""
+    data = {}
+    lines = [l.strip() for l in text.splitlines() if l.strip()]
+
+    # 1. Full Name (from the top header lines)
+    candidate_name = ""
+    for l in lines[:6]:
+        clean = re.sub(r'[^a-zA-Z\s]', '', l).strip()
+        words = clean.split()
+        if 2 <= len(words) <= 4 and not any(w.lower() in ["resume", "curriculum", "vitae", "cv", "page", "email", "phone", "contact"] for w in words):
+            candidate_name = clean
+            break
+    if not candidate_name and lines:
+        candidate_name = lines[0]
+    
+    parts = candidate_name.split()
+    first_name = parts[0] if parts else "Jane"
+    last_name = " ".join(parts[1:]) if len(parts) > 1 else "Doe"
+    data["candidate_name"] = candidate_name
+    data["first_name"] = first_name
+    data["last_name"] = last_name
+
+    # 2. Email Address
+    email_match = re.search(r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+', text)
+    if email_match:
+        data["candidate_email"] = email_match.group(0).strip()
+
+    # 3. Phone Number
+    phone_match = re.search(r'(?:\+?1[-. ]?)?\(?([0-9]{3})\)?[-. ]?([0-9]{3})[-. ]?([0-9]{4})', text)
+    if phone_match:
+        data["phone"] = phone_match.group(0).strip()
+
+    # 4. Location (City, State)
+    loc_match = re.search(r'([A-Z][a-zA-Z\s]+),\s*([A-Z]{2})', text)
+    if loc_match:
+        data["city"] = loc_match.group(1).strip()
+        data["state"] = loc_match.group(2).strip()
+        data["location"] = f"{data['city']}, {data['state']}"
+
+    # 5. LinkedIn URL
+    li_match = re.search(r'(?:https?://)?(?:www\.)?linkedin\.com/in/([a-zA-Z0-9_-]+)/?', text, re.IGNORECASE)
+    if li_match:
+        data["linkedin_url"] = f"https://www.linkedin.com/in/{li_match.group(1)}/"
+
+    # 6. GitHub URL
+    gh_match = re.search(r'(?:https?://)?(?:www\.)?github\.com/([a-zA-Z0-9_-]+)/?', text, re.IGNORECASE)
+    if gh_match:
+        data["github_url"] = f"https://github.com/{gh_match.group(1)}"
+
+    # 7. Portfolio URL
+    port_match = re.search(r'(?:https?://)?([a-zA-Z0-9_-]+\.github\.io|[a-zA-Z0-9_-]+\.(?:dev|me|io|tech))/?', text, re.IGNORECASE)
+    if port_match and not any(k in port_match.group(1) for k in ["linkedin", "github", "google", "gmail"]):
+        data["portfolio_url"] = f"https://{port_match.group(1)}"
+
+    # 8. Education: University / School Name
+    for l in lines:
+        if any(k in l.lower() for k in ["university", "college", "institute of technology", "polytechnic"]) and not any(k in l.lower() for k in ["software", "intern", "engineer", "club"]):
+            s = re.split(r'–|-|\||	', l)[0].strip()
+            s = re.sub(r'\s+[A-Z][a-zA-Z\s]+,\s*[A-Z]{2}$', '', s).strip()
+            data["school_name"] = s
+            data["school_search_term"] = s.split()[0] if s else ""
+            break
+
+    # 9. Degree & Major
+    for l in lines:
+        if any(k in l.lower() for k in ["bachelor", "master", "ph.d", "bs in", "b.s.", "ms in", "m.s."]):
+            deg = re.split(r';|–|-|\||	', l)[0].strip()
+            data["degree"] = deg
+            data["degree_undergrad"] = deg
+            break
+
+    # 10. GPA
+    gpa_match = re.search(r'GPA:?\s*([0-4]\.\d{1,2})', text, re.IGNORECASE)
+    if gpa_match:
+        data["gpa"] = gpa_match.group(1)
+
+    # 11. Graduation Date
+    grad_match = re.search(r'(?:Expected|Graduation|Class of)?\s*(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?|Spring|Summer|Fall|Winter)?\s*(202[4-9]|203[0-5])', text, re.IGNORECASE)
+    if grad_match:
+        m = grad_match.group(1) or "May"
+        y = grad_match.group(2)
+        data["grad_month_year"] = f"{m.capitalize()} {y}"
+        data["undergrad_grad_year"] = y
+
+    # 12. Preferred Programming Language
+    lang_counts = {}
+    for lang in ["Python", "Java", "C++", "JavaScript", "TypeScript", "Go", "Rust", "C#", "Swift", "Kotlin"]:
+        cnt = len(re.findall(r'' + re.escape(lang) + r'', text, re.IGNORECASE))
+        if cnt > 0:
+            lang_counts[lang] = cnt
+    if lang_counts:
+        data["preferred_language"] = max(lang_counts, key=lang_counts.get)
+
+    # 13. Default Resume PDF Path
+    data["default_resume_pdf"] = str(Path(pdf_path).resolve())
+
+    return data
+
+
 def create_directories(base_dir: Path):
     """Initializes all necessary runtime directories."""
     dirs = [
@@ -115,15 +273,13 @@ def build_config_json(base_dir: Path, data: Dict[str, Any], overwrite: bool = Fa
         elif v:
             config[k] = v
 
-    # Derive full name if not explicitly set
     if not data.get("candidate_name") and (data.get("first_name") or data.get("last_name")):
         fn = data.get("first_name", config["first_name"])
         ln = data.get("last_name", config["last_name"])
         config["candidate_name"] = f"{fn} {ln}".strip()
 
-    # Ensure location matches city and state
     if not data.get("location") and (config.get("city") and config.get("state")):
-        config["location"] = f"{config["city"]}, {config["state"]}"
+        config["location"] = f"{config['city']}, {config['state']}"
 
     with open(cfg_file, "w", encoding="utf-8") as f:
         json.dump(config, f, indent=2)
@@ -178,12 +334,12 @@ Strictly ignored in git to preserve candidate privacy.
 - **Work Authorization**: Authorized to work in the United States for any employer.
 - **Visa Sponsorship**: Does **not** require current or future visa sponsorship (Answer: **No** to sponsorship needed, **Yes** to legally authorized).
 - **Demographics & Equal Employment Opportunity (EEO)**:
-  - **Gender**: {cfg.get("gender", "Decline to self-identify")}
-  - **Pronouns**: {cfg.get("pronouns", "He/Him")}
-  - **Hispanic / Latino**: {cfg.get("hispanic_latino", "No")}
-  - **Race / Ethnicity**: {cfg.get("race_ethnicity", "Asian")}
-  - **Veteran Status**: {cfg.get("veteran_status", "I am not a protected veteran")}
-  - **Disability Status**: {cfg.get("disability", "No, I do not have a disability")}
+  - **Gender**: {cfg.get('gender', 'Decline to self-identify')}
+  - **Pronouns**: {cfg.get('pronouns', 'He/Him')}
+  - **Hispanic / Latino**: {cfg.get('hispanic_latino', 'No')}
+  - **Race / Ethnicity**: {cfg.get('race_ethnicity', 'Asian')}
+  - **Veteran Status**: {cfg.get('veteran_status', 'I am not a protected veteran')}
+  - **Disability Status**: {cfg.get('disability', 'No, I do not have a disability')}
 - **Job Preferences & Policies**:
   - **Preferred Programming Language**: {pref_lang}
   - **Salary Range Acceptance**: Acceptable / Yes
@@ -252,30 +408,36 @@ def build_base_resume(base_dir: Path, cfg: Dict[str, Any], compile_pdf: bool = T
         t = t.replace("3.85", gpa)
     else:
         grad_my = cfg.get("grad_month_year", "May 2026")
-        t = (
-            "\\documentclass[letterpaper,11pt]{article}\n"
-            "\\usepackage[empty]{fullpage}\n"
-            "\\usepackage{hyperref}\n"
-            "\\begin{document}\n"
-            "\\begin{center}\n"
-            f"    \\textbf{{\\Huge {name}}} \\\\ \\vspace{{2pt}}\n"
-            f"    \\small {phone} $|$ \\href{{mailto:{email}}}{{{email}}} $|$ \\href{{{linkedin}}}{{{clean_li}}} $|$ \\href{{{github}}}{{{clean_gh}}}\n"
-            "\\end{center}\n"
-            "\\section*{Education}\n"
-            f"\\textbf{{{school}}} \\hfill {loc} \\\\\n"
-            f"\\textit{{{degree}; GPA: {gpa}}} \\hfill Expected {grad_my}\n"
-            "\\section*{Technical Skills}\n"
-            "\\textbf{Languages:} Python, Java, JavaScript, TypeScript, SQL, C/C++ \\\\\n"
-            "\\textbf{Frameworks \\& Tools:} FastAPI, React, Node.js, Docker, PostgreSQL, AWS, Linux, Git\n"
-            "\\end{document}\n"
-        )
+        lines_t = [
+            r"\documentclass[letterpaper,11pt]{article}",
+            r"\usepackage[empty]{fullpage}",
+            r"\usepackage{hyperref}",
+            r"\begin{document}",
+            r"\begin{center}",
+            f"    \\textbf{{\\Huge {name}}} \\\\ \\vspace{{2pt}}",
+            f"    \\small {phone} $|$ \\href{{mailto:{email}}}{{{email}}} $|$ \\href{{{linkedin}}}{{{clean_li}}} $|$ \\href{{{github}}}{{{clean_gh}}}",
+            r"\end{center}",
+            r"\section*{Education}",
+            f"\\textbf{{{school}}} \\hfill {loc} \\\\",
+            f"\\textit{{{degree}; GPA: {gpa}}} \\hfill Expected {grad_my}",
+            r"\section*{Technical Skills}",
+            r"\textbf{Languages:} Python, Java, JavaScript, TypeScript, SQL, C/C++ \\",
+            r"\textbf{Frameworks \& Tools:} FastAPI, React, Node.js, Docker, PostgreSQL, AWS, Linux, Git",
+            r"\end{document}"
+        ]
+        t = "\n".join(lines_t) + "\n"
 
     if not latex_file.exists() or overwrite:
         with open(latex_file, "w", encoding="utf-8") as f:
             f.write(t)
         print(f"  ✅ Built base_resume_latex.txt at {latex_file}")
 
-    # Compile PDF via tectonic if requested and available
+    # If user already has a valid default_resume_pdf, keep it
+    existing_pdf = cfg.get("default_resume_pdf", "")
+    if existing_pdf and Path(existing_pdf).exists():
+        print(f"  📄 Using candidate resume PDF: {existing_pdf}")
+        return latex_file
+
     pdf_file = base_dir / "references" / "base_resume.pdf"
     if compile_pdf and shutil.which("tectonic"):
         try:
@@ -338,36 +500,49 @@ def run_setup(base_dir: Path, data: Dict[str, Any], overwrite: bool = False, com
 
 
 def prompt_interactive() -> Dict[str, Any]:
-    """Interactively prompts user in terminal for profile details."""
+    """Interactively prompts user in terminal for profile details or resume PDF."""
     print("\n👋 Welcome to AIJobAssistant Setup Wizard!")
-    print("Answer these quick questions to generate your local files.\n")
     data = {}
     
-    first_name = input("1. First Name [Jane]: ").strip() or "Jane"
-    last_name = input("2. Last Name [Doe]: ").strip() or "Doe"
-    data["first_name"] = first_name
-    data["last_name"] = last_name
-    data["candidate_name"] = f"{first_name} {last_name}"
+    resume_path = input("📄 Have a Resume PDF? Enter path (or press Enter to fill manually): ").strip()
+    if resume_path and Path(resume_path).expanduser().exists():
+        full_path = str(Path(resume_path).expanduser().resolve())
+        print(f"\n🔍 Reading and extracting candidate profile from: {full_path}...")
+        try:
+            txt = extract_text_from_pdf(full_path)
+            extracted = parse_resume_data(txt, full_path)
+            print(f"  ✅ Found Candidate: {extracted.get('candidate_name', 'Unknown')}")
+            print(f"  ✅ Found Email: {extracted.get('candidate_email', 'Unknown')}")
+            print(f"  ✅ Found Phone: {extracted.get('phone', 'Unknown')}")
+            print(f"  ✅ Found School: {extracted.get('school_name', 'Unknown')}")
+            print(f"  ✅ Found Degree: {extracted.get('degree', 'Unknown')}")
+            print(f"  ✅ Found GPA: {extracted.get('gpa', 'Unknown')}")
+            print(f"  ✅ Found Preferred Lang: {extracted.get('preferred_language', 'Python')}")
+            data.update(extracted)
+        except Exception as e:
+            print(f"  ⚠️ Could not auto-parse PDF: {e}. Falling back to manual prompts.")
 
-    data["candidate_email"] = input("3. Email [jane.doe@example.com]: ").strip() or "jane.doe@example.com"
-    data["phone"] = input("4. Phone [555-123-4567]: ").strip() or "555-123-4567"
-    
-    city = input("5. City [New York]: ").strip() or "New York"
-    state = input("6. State [NY]: ").strip() or "NY"
-    data["city"] = city
-    data["state"] = state
-    data["location"] = f"{city}, {state}"
+    if not data.get("first_name"):
+        first_name = input("1. First Name [Jane]: ").strip() or "Jane"
+        last_name = input("2. Last Name [Doe]: ").strip() or "Doe"
+        data["first_name"] = first_name
+        data["last_name"] = last_name
+        data["candidate_name"] = f"{first_name} {last_name}"
 
-    data["school_name"] = input("7. University / School [State University]: ").strip() or "State University"
-    data["degree"] = input("8. Degree [Bachelor of Science in Computer Science]: ").strip() or "Bachelor of Science in Computer Science"
-    data["gpa"] = input("9. GPA [3.85]: ").strip() or "3.85"
-    data["grad_month_year"] = input("10. Expected Graduation [May 2026]: ").strip() or "May 2026"
+    if not data.get("candidate_email"):
+        data["candidate_email"] = input("3. Email [jane.doe@example.com]: ").strip() or "jane.doe@example.com"
 
-    data["linkedin_url"] = input("11. LinkedIn URL [https://www.linkedin.com/]: ").strip() or "https://www.linkedin.com/"
-    data["github_url"] = input("12. GitHub URL [https://github.com/]: ").strip() or "https://github.com/"
-    data["workday_password"] = input("13. Workday Standard Password (optional): ").strip()
-    
-    auth = input("14. Are you a US Citizen / Authorized without sponsorship? (Y/n) [Y]: ").strip().lower()
+    if not data.get("phone"):
+        data["phone"] = input("4. Phone [555-123-4567]: ").strip() or "555-123-4567"
+
+    if not data.get("school_name"):
+        data["school_name"] = input("5. University / School [State University]: ").strip() or "State University"
+
+    workday_pw = input("6. Workday Standard Password (optional): ").strip()
+    if workday_pw:
+        data["workday_password"] = workday_pw
+
+    auth = input("7. Are you a US Citizen / Authorized without sponsorship? (Y/n) [Y]: ").strip().lower()
     if auth in ["n", "no"]:
         data["us_citizen"] = "No"
         data["sponsorship_required"] = "Yes"
@@ -380,6 +555,7 @@ def prompt_interactive() -> Dict[str, Any]:
 
 def main():
     parser = argparse.ArgumentParser(description="Initialize AIJobAssistant candidate profile & local files.")
+    parser.add_argument("--resume-pdf", "--resume", dest="resume_pdf", default=None, help="Path to candidate resume PDF for automatic parsing")
     parser.add_argument("--target-dir", default=None, help="Directory to initialize (defaults to current working directory)")
     parser.add_argument("--json", dest="json_str", default=None, help="Candidate profile as JSON string")
     parser.add_argument("--file", dest="json_file", default=None, help="Path to JSON file with candidate profile")
@@ -391,22 +567,33 @@ def main():
     target_dir = Path(args.target_dir).resolve() if args.target_dir else Path.cwd().resolve()
 
     data = {}
+
+    # If resume PDF provided, parse it first
+    if args.resume_pdf:
+        pdf_path = Path(args.resume_pdf).expanduser().resolve()
+        print(f"📄 Extracting profile from resume PDF: {pdf_path}")
+        try:
+            txt = extract_text_from_pdf(str(pdf_path))
+            parsed = parse_resume_data(txt, str(pdf_path))
+            data.update(parsed)
+            print(f"  ✅ Extracted: {data.get('candidate_name')} | {data.get('candidate_email')} | {data.get('school_name')}")
+        except Exception as e:
+            sys.exit(f"❌ Error extracting resume PDF: {e}")
+
+    # If JSON string or file provided, merge it over (allows overrides)
     if args.json_str:
         try:
-            data = json.loads(args.json_str)
+            data.update(json.loads(args.json_str))
         except Exception as e:
             sys.exit(f"❌ Error: Invalid JSON passed to --json: {e}")
     elif args.json_file:
         try:
             with open(args.json_file, "r") as f:
-                data = json.load(f)
+                data.update(json.load(f))
         except Exception as e:
             sys.exit(f"❌ Error: Could not read JSON file {args.json_file}: {e}")
-    elif args.interactive or sys.stdin.isatty():
-        data = prompt_interactive()
-    else:
-        print("ℹ️ Running in automated mode with standard template defaults.")
-        data = {}
+    elif args.interactive or (sys.stdin.isatty() and not args.resume_pdf):
+        data.update(prompt_interactive())
 
     run_setup(target_dir, data, overwrite=args.force, compile_pdf=not args.no_tectonic)
 

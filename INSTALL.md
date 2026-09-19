@@ -25,34 +25,34 @@ playwright install chromium
 
 ---
 
-### Step 3: Automatically Build Your Candidate Profile
+### Step 3: Automatically Build Your Profile (From Your Resume PDF)
 
-Run the automated setup wizard to generate all local files needed by the application engines:
+You don't need to manually configure anything! Simply point the setup engine to your existing resume PDF:
 
 ```bash
-python init_setup.py
+python init_setup.py --resume-pdf /path/to/your/resume.pdf
 ```
 
-The interactive wizard asks a few simple questions in your terminal and automatically builds:
-1. **`config.json`**: Ground truth for application form fillers, auth, and credentials.
-2. **`references/application_profile.md`**: Form bubble reference card, demographics, and compliance preferences.
-3. **`references/base_resume_latex.txt` & PDF**: Baseline ATS single-column LaTeX resume compiled into a ready-to-attach PDF.
-4. **Runtime directories & tracking logs**: Pre-creates tracking folders and empty application logs.
+The engine automatically parses your resume PDF and extracts:
+- **Contact**: Full Name, Email, Phone, and City/State location.
+- **Education**: University, Degree, Major, GPA, and Graduation Date.
+- **Links**: LinkedIn, GitHub, and Portfolio URLs.
+- **Technical Focus**: Primary programming language and core skills.
+
+From that single PDF, it automatically builds:
+1. **`config.json`**: Populated with your details and pointing directly to your resume PDF.
+2. **`references/application_profile.md`**: Pre-filled with your confirmed facts and ATS bubble preferences.
+3. **`references/base_resume_latex.txt`**: Tailored baseline ATS resume.
+4. **Runtime directories & tracking logs**: Ready for immediate application submissions.
 
 > [!TIP]
 > **Using an AI Agent (Antigravity, Cursor, Claude Code, etc.)?**
-> You can simply ask your AI agent in chat:
-> *"Help me set up AIJobAssistant for my job search"*
-> The agent will prompt you for your details and run `init_setup.py` programmatically to build all necessary files in seconds!
+> You can simply drop your resume PDF into chat or ask your agent:
+> *"Here is my resume: `path/to/resume.pdf` — please set up my job search profile"*
+> The agent will parse your resume and build all necessary files on your machine in seconds!
 
 > [!NOTE]
-> `config.json`, `application_profile.md`, and custom resumes are automatically gitignored so your personal information and credentials will **never** be committed or exposed to GitHub.
-
----
-
-### Step 4: Add Your Resume
-
-Place your baseline PDF resume in `references/sample_resume.pdf` (or specify an absolute path to your resume in `config.json` under `"default_resume_pdf"`).
+> `config.json`, `application_profile.md`, and personal resumes are strictly gitignored so your personal information and credentials will **never** be committed or exposed to GitHub.
 
 ---
 
