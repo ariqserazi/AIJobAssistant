@@ -35,9 +35,12 @@ You MUST NOT submit dummy applications. Instead, immediately pause and provide c
     Once the candidate provides their resume PDF path:
     1. Read and parse the resume PDF directly (or run `python init_setup.py --resume-pdf /path/to/resume.pdf`).
     2. Confirm extracted fields (Name, email, phone, school, GPA, links).
-    3. Ask the only 2 questions not on a resume:
+    3. Ask the essential questions not on a resume:
        - Work authorization: U.S. Citizen / require visa sponsorship? (Defaults to US Citizen / No sponsorship).
        - Workday standard account password (optional).
+       - AI Form Reasoner:
+         * **Ollama Local AI** (100% Free / 0 Credit Cost — runs locally, installs dependencies automatically)
+         * **Current AI Chat** (Uses this active chat assistant directly — no local models to download)
     *All local files (`config.json`, `application_profile.md`, directories) will be generated automatically!*
   - **Option 2 (Interactive Chat Questions)**:
     If they do not have a PDF ready, ask them for their details in chat and run `python init_setup.py --json '<USER_ANSWERS_JSON>'`.

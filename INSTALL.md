@@ -56,6 +56,31 @@ From that single PDF, it automatically builds:
 
 ---
 
+### Step 4: Choose Your AI Form Reasoner (Ollama vs. Current AI Chat)
+
+When applying to jobs on ATS platforms, applications frequently present custom, non-standard, or behavioral questions (e.g., *"Why do you want to work at our company?"*, *"Describe a technical challenge you overcame"*, or ambiguous multi-select checkboxes). An **AI Form Reasoner** reads your candidate profile and dynamically generates tailored, compliant answers with zero manual intervention.
+
+You have two options:
+
+#### Option 1: Ollama Local AI (Recommended — 0 Credit Cost)
+* **What it does**: Runs a local reasoning model (`qwen3:4b-instruct`) directly on your machine.
+* **Why choose it**: **100% Free** — consumes **0 credits or tokens** from your AI chat assistant, enabling unlimited automated applications.
+* **Setup**: Run setup with `--setup-ollama` (or choose Option 1 in interactive mode):
+  ```bash
+  python init_setup.py --setup-ollama
+  ```
+  The setup script automatically checks your OS, installs Ollama dependencies (macOS Homebrew, Linux curl, Windows winget), starts the service, and pulls the model for you.
+
+#### Option 2: Current AI Chat Assistant (No Extra Downloads)
+* **What it does**: Routes reasoning through your active AI chat assistant (Antigravity / Claude / Gemini).
+* **Why choose it**: No extra background services or 2.5 GB models to download.
+* **Setup**:
+  ```bash
+  python init_setup.py --chat-llm
+  ```
+
+---
+
 ## 🏃 Running the Application Engines
 
 ### 1. Parallel Multi-ATS Engine (Greenhouse, Lever, Ashby)

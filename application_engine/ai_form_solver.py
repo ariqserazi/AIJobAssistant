@@ -4,9 +4,6 @@ import json
 import urllib.request
 from typing import List, Optional
 
-OLLAMA_ENDPOINT = os.environ.get("OLLAMA_ENDPOINT", "http://127.0.0.1:11434/api/generate")
-OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen3:4b-instruct")
-
 try:
     from config_loader import get_candidate_dict, load_config
 except ImportError:
@@ -16,7 +13,13 @@ except ImportError:
         def get_candidate_dict(): return {}
         def load_config(): return {}
 
-def get_candidate_ground_truth():
+_cfg = load_config()
+AI_REASONER = _cfg.get("ai_reasoner", "ollama" if _cfg.get("enable_ollama", True) else "disabled")
+ENABLE_OLLAMA = _cfg.get("enable_ollama", True) and AI_REASONER == "ollama"
+OLLAMA_ENDPOINT = os.environ.get("OLLAMA_ENDPOINT", _cfg.get("ollama_endpoint", "http://127.0.0.1:11434/api/generate"))
+OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", _cfg.get("ollama_model", "qwen3:4b-instruct"))
+
+def get_candidate_ground_truth() -> str:
     _c = get_candidate_dict()
     first = _c.get("first_name", "Candidate")
     last = _c.get("last_name", "User")
@@ -52,7 +55,8 @@ Candidate Ground Truth:
 - Strict Formatting Rule: Free text must strictly contain ZERO dashes or hyphens. Never use N/A. Use None or Not applicable.
 """
 
-def query_ai_reasoner(prompt: str, timeout_sec: float = 12.0) -> Optional[str]:
+def _query_ollama(prompt: str, timeout_sec: float = 12.0) -> Optional[str]:
+    """Queries local Ollama instance (0 credit cost, runs on-device)."""
     try:
         payload = {
             "model": OLLAMA_MODEL,
@@ -72,10 +76,29 @@ def query_ai_reasoner(prompt: str, timeout_sec: float = 12.0) -> Optional[str]:
         with urllib.request.urlopen(req, timeout=timeout_sec) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             ans = data.get("response", "").strip()
-            ans = ans.strip("`'\" \n\t")
-            return ans
+            return ans.strip("`'\" \n\t")
     except Exception:
         return None
+
+
+def query_ai_reasoner(prompt: str, timeout_sec: float = 12.0) -> Optional[str]:
+    """Queries the configured AI reasoning engine (Ollama for 0 credit cost, or Active Chat Assistant)."""
+    if AI_REASONER == "disabled":
+        return None
+
+    # Option 1: Ollama Local AI (0 credit cost)
+    if AI_REASONER == "ollama" or ENABLE_OLLAMA:
+        ans = _query_ollama(prompt, timeout_sec=timeout_sec)
+        if ans:
+            return ans
+
+    # Option 2: Current AI Chat Assistant (chat_llm)
+    # When running headless without Ollama, return None so the script gracefully falls back
+    # to candidate ground truth and regex heuristics, or allows the active chat agent to solve it.
+    if AI_REASONER == "chat_llm":
+        return None
+
+    return None
 
 def solve_field_with_ai(
     question: str,

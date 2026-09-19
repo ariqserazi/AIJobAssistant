@@ -54,6 +54,10 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "workday_password": "",
     "google_sheet_id": "",
     "google_service_account_key": "",
+    "ai_reasoner": "ollama",  # "ollama" (0 credit cost, local) or "chat_llm" (active AI chat assistant)
+    "enable_ollama": True,
+    "ollama_endpoint": "http://127.0.0.1:11434/api/generate",
+    "ollama_model": "qwen3:4b-instruct",
     "us_citizen": "Yes",
     "us_person": "Yes",
     "authorized_in_us": "Yes",

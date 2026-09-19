@@ -74,6 +74,10 @@ DEFAULT_CONFIG_VALUES = {
     "workday_password": "",
     "google_sheet_id": "",
     "google_service_account_key": "",
+    "ai_reasoner": "ollama",  # "ollama" (0 credit cost, local) or "chat_llm" (active AI chat assistant)
+    "enable_ollama": True,
+    "ollama_endpoint": "http://127.0.0.1:11434/api/generate",
+    "ollama_model": "qwen3:4b-instruct",
     "us_citizen": "Yes",
     "us_person": "Yes",
     "authorized_in_us": "Yes",
@@ -263,14 +267,32 @@ def build_config_json(base_dir: Path, data: Dict[str, Any], overwrite: bool = Fa
     """Builds config.json merging inputs with safe defaults."""
     cfg_file = base_dir / "config.json"
     if cfg_file.exists() and not overwrite:
-        print(f"  ℹ️ {cfg_file} already exists. Skipping overwrite (use --force to overwrite).")
+        print(f"  ℹ️ {cfg_file} already exists. Updating any new/missing configuration keys...")
+        try:
+            with open(cfg_file, "r", encoding="utf-8") as f:
+                c = json.load(f)
+            updated = False
+            for k, v in data.items():
+                if k not in c or k in ["ai_reasoner", "enable_ollama", "ollama_model", "ollama_endpoint"]:
+                    c[k] = v
+                    updated = True
+            for k, v in DEFAULT_CONFIG_VALUES.items():
+                if k not in c:
+                    c[k] = v
+                    updated = True
+            if updated:
+                with open(cfg_file, "w", encoding="utf-8") as f:
+                    json.dump(c, f, indent=2)
+                print(f"  ✅ Updated {cfg_file} with latest configuration options.")
+        except Exception as e:
+            print(f"  ⚠️ Could not update existing config.json: {e}")
         return cfg_file
 
     config = dict(DEFAULT_CONFIG_VALUES)
     for k, v in data.items():
         if k == "responses" and isinstance(v, dict):
             config["responses"].update(v)
-        elif v:
+        elif v is not None and v != "":
             config[k] = v
 
     if not data.get("candidate_name") and (data.get("first_name") or data.get("last_name")):
@@ -496,7 +518,80 @@ def run_setup(base_dir: Path, data: Dict[str, Any], overwrite: bool = False, com
     build_application_profile(base_dir, cfg, overwrite=overwrite)
     build_base_resume(base_dir, cfg, compile_pdf=compile_pdf, overwrite=overwrite)
     build_logs_and_tracking(base_dir)
-    print("\n🎉 Initialization Complete! Your candidate profile and application engine are ready.")
+    print("\n✨ AIJobAssistant profile and references initialized successfully!")
+
+
+def setup_ollama(model: str = "qwen3:4b-instruct") -> bool:
+    """Verifies Ollama installation, installs dependencies if needed, starts daemon, and pulls the reasoning model."""
+    print(f"\n🦙 Setting up Ollama Local AI Reasoner ({model})...")
+    print("  ℹ️ Purpose: Zero-cost, 100% private local AI reasoning for answering complex ATS form questions.")
+    ollama_bin = shutil.which("ollama")
+    if not ollama_bin:
+        print("  ⚠️ Ollama CLI is not found on your system.")
+        print("  Attempting automatic installation of Ollama dependencies...")
+        if sys.platform == "darwin":
+            if shutil.which("brew"):
+                print("  🍺 Installing Ollama via Homebrew ('brew install ollama')...")
+                try:
+                    subprocess.run(["brew", "install", "ollama"], check=True)
+                    ollama_bin = shutil.which("ollama")
+                except Exception as e:
+                    print(f"  ❌ Homebrew installation failed: {e}")
+            else:
+                print("  👉 Please install Homebrew or download Ollama from https://ollama.com/download")
+        elif sys.platform.startswith("linux"):
+            print("  🐧 Installing Ollama via official installer ('curl -fsSL https://ollama.com/install.sh | sh')...")
+            try:
+                subprocess.run("curl -fsSL https://ollama.com/install.sh | sh", shell=True, check=True)
+                ollama_bin = shutil.which("ollama")
+            except Exception as e:
+                print(f"  ❌ Linux installation failed: {e}")
+        elif sys.platform == "win32":
+            print("  🪟 Installing Ollama via winget ('winget install Ollama.Ollama')...")
+            try:
+                subprocess.run(["winget", "install", "Ollama.Ollama"], check=True)
+                ollama_bin = shutil.which("ollama")
+            except Exception as e:
+                print(f"  ❌ Windows installation failed: {e}")
+
+        if not ollama_bin:
+            print("  ⚠️ Automatic installation could not be completed.")
+            print("  Please download and install Ollama from: https://ollama.com/download")
+            print("  Then re-run: python init_setup.py --setup-ollama")
+            return False
+
+    # Check if Ollama daemon is running
+    is_running = False
+    try:
+        req = urllib.request.Request("http://127.0.0.1:11434/api/tags")
+        with urllib.request.urlopen(req, timeout=1.5) as resp:
+            if resp.status == 200:
+                is_running = True
+    except Exception:
+        is_running = False
+
+    if not is_running:
+        print("  🔄 Starting Ollama background service...")
+        try:
+            subprocess.Popen(["ollama", "serve"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            import time
+            time.sleep(2.0)
+        except Exception as e:
+            print(f"  ⚠️ Could not start 'ollama serve': {e}")
+
+    # Pull model
+    print(f"  📥 Pulling model '{model}' (lightweight & optimized for form questions)...")
+    try:
+        res = subprocess.run(["ollama", "pull", model])
+        if res.returncode == 0:
+            print(f"  ✅ Ollama model '{model}' successfully installed and ready!")
+            return True
+        else:
+            print(f"  ⚠️ 'ollama pull {model}' returned code {res.returncode}")
+            return False
+    except Exception as e:
+        print(f"  ⚠️ Could not pull Ollama model: {e}")
+        return False
 
 
 def prompt_interactive() -> Dict[str, Any]:
@@ -550,12 +645,41 @@ def prompt_interactive() -> Dict[str, Any]:
         data["us_citizen"] = "Yes"
         data["sponsorship_required"] = "No"
 
+    print("\n" + "="*76)
+    print("🤖 AI Form Reasoner Setup (Application Question Solving)")
+    print("="*76)
+    print("What it's used for:")
+    print("  When applying to jobs, applications often ask custom, non-standard, or")
+    print("  behavioral questions (e.g., 'Why this company?', 'Describe a technical")
+    print("  challenge you overcame', or tricky comboboxes/radios). An AI reasoner")
+    print("  reads your candidate profile to dynamically generate accurate, tailored answers.\n")
+    print("Choose how you want application questions answered:")
+    print("  [1] Ollama Local AI (Recommended - 100% Free, NO credit/token cost, runs on your computer)")
+    print("  [2] Current AI Chat (Uses your active AI chat assistant - no local software to install)\n")
+
+    choice = input("Enter choice [1 or 2] (Default: 1): ").strip().lower()
+    if choice in ["2", "chat", "current", "current ai"]:
+        print("  ✅ Configured for Current AI Chat. Your active chat assistant will handle reasoning directly.")
+        data["ai_reasoner"] = "chat_llm"
+        data["enable_ollama"] = False
+    else:
+        print("  ✅ Configured for Ollama Local AI (0 credit cost).")
+        data["ai_reasoner"] = "ollama"
+        data["enable_ollama"] = True
+        data["ollama_model"] = "qwen3:4b-instruct"
+        # Check and install Ollama dependencies right at the beginning
+        setup_ollama()
+
     return data
 
 
 def main():
     parser = argparse.ArgumentParser(description="Initialize AIJobAssistant candidate profile & local files.")
     parser.add_argument("--resume-pdf", "--resume", dest="resume_pdf", default=None, help="Path to candidate resume PDF for automatic parsing")
+    parser.add_argument("--reasoner", choices=["ollama", "chat_llm", "disabled"], default=None, help="AI Form Reasoner: 'ollama' (0 credit cost) or 'chat_llm' (active AI chat assistant)")
+    parser.add_argument("--setup-ollama", "--ollama", dest="setup_ollama", action="store_true", help="Set up Ollama dependencies & model (qwen3:4b-instruct) for 0-credit form solving")
+    parser.add_argument("--chat-llm", "--current-ai", dest="chat_llm", action="store_true", help="Use current AI chat assistant instead of installing local Ollama")
+    parser.add_argument("--no-ollama", action="store_true", help="Disable Ollama local AI reasoner in configuration")
     parser.add_argument("--target-dir", default=None, help="Directory to initialize (defaults to current working directory)")
     parser.add_argument("--json", dest="json_str", default=None, help="Candidate profile as JSON string")
     parser.add_argument("--file", dest="json_file", default=None, help="Path to JSON file with candidate profile")
@@ -592,8 +716,22 @@ def main():
                 data.update(json.load(f))
         except Exception as e:
             sys.exit(f"❌ Error: Could not read JSON file {args.json_file}: {e}")
-    elif args.interactive or (sys.stdin.isatty() and not args.resume_pdf):
+    elif args.interactive:
         data.update(prompt_interactive())
+    elif sys.stdin.isatty() and not (args.resume_pdf or args.json_str or args.json_file or args.setup_ollama or args.chat_llm or args.no_ollama):
+        data.update(prompt_interactive())
+
+    if args.reasoner == "ollama" or args.setup_ollama:
+        setup_ollama()
+        data["ai_reasoner"] = "ollama"
+        data["enable_ollama"] = True
+        data["ollama_model"] = "qwen3:4b-instruct"
+    elif args.reasoner == "chat_llm" or args.chat_llm:
+        data["ai_reasoner"] = "chat_llm"
+        data["enable_ollama"] = False
+    elif args.reasoner == "disabled" or args.no_ollama:
+        data["ai_reasoner"] = "disabled"
+        data["enable_ollama"] = False
 
     run_setup(target_dir, data, overwrite=args.force, compile_pdf=not args.no_tectonic)
 

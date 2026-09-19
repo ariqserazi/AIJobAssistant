@@ -96,6 +96,11 @@ From that single PDF, it automatically builds:
 3. **`references/base_resume_latex.txt`**: Tailored baseline ATS resume.
 4. **Runtime directories & tracking logs**: Creates all required directories and logs.
 
+### 🧠 Flexible AI Form Reasoner (Ollama vs. Current AI Chat)
+Applications frequently require answering non-standard questions (e.g. behavioral questions, company mission essays, custom comboboxes). You can choose how the engine solves these:
+- **Option 1: Ollama Local AI (`--setup-ollama`)**: **100% Free / 0 Credit Cost**. Installs all Ollama dependencies, starts the service, and runs `qwen3:4b-instruct` locally on your device for unlimited, zero-cost question solving.
+- **Option 2: Current AI Chat (`--chat-llm`)**: Solves questions directly using your active AI chat assistant without downloading local models or software.
+
 > [!TIP]
 > **Using an AI Agent (Antigravity, Cursor, Claude Code, etc.)?**
 > Simply drop your resume PDF into the chat or say:
