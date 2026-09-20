@@ -34,6 +34,26 @@ LOG_SCRIPT = os.path.expanduser("~/.agents/skills/resume-tailor-swe/scripts/log_
 CONFIRMATIONS_DIR = os.path.expanduser("~/.agents/skills/resume-tailor-swe/artifacts/confirmations")
 os.makedirs(CONFIRMATIONS_DIR, exist_ok=True)
 
+def bring_window_to_front(app_name="Google Chrome"):
+    """Brings Chrome to the foreground so the user sees it and clicks land natively."""
+    script = f'''
+    tell application "System Events"
+        set processList to (name of every process)
+        if "{app_name}" is in processList then
+            tell application "{app_name}" to activate
+        else if "Google Chrome" is in processList then
+            tell application "Google Chrome" to activate
+        else if "Chromium" is in processList then
+            tell application "Chromium" to activate
+        end if
+    end tell
+    '''
+    try:
+        subprocess.run(["osascript", "-e", script], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        time.sleep(0.4)
+    except Exception:
+        pass
+
 try:
     from config_loader import get_candidate_dict, load_config
 except ImportError:
@@ -47,19 +67,19 @@ _cfg = load_config()
 _c = get_candidate_dict()
 
 CANDIDATE = {
-    "first_name": _c.get("first_name", "Candidate"),
-    "last_name": _c.get("last_name", "User"),
-    "email": _c.get("candidate_email", os.getenv("CANDIDATE_EMAIL", "candidate@example.com")),
-    "password": _c.get("workday_password", os.getenv("WORKDAY_PASSWORD", "")),
-    "phone": _c.get("phone", "555-123-4567"),
+    "first_name": _c.get("first_name", "Ariq"),
+    "last_name": _c.get("last_name", "Serazi"),
+    "email": _c.get("email") or _c.get("candidate_email") or os.getenv("CANDIDATE_EMAIL", "ariq.serazi1@gmail.com"),
+    "password": _c.get("workday_password") or os.getenv("WORKDAY_PASSWORD", "AriqWorkday2026!#"),
+    "phone": _c.get("phone", "732-853-6773"),
     "address": _c.get("address", "123 Main St"),
-    "city": _c.get("city", "New York"),
-    "state": _c.get("state", "New York"),
-    "zip": _c.get("postal_code", "10001"),
+    "city": _c.get("city", "Piscataway"),
+    "state": _c.get("state", "New Jersey"),
+    "zip": _c.get("postal_code") or _c.get("zip_code", "08854"),
     "country": _c.get("country", "United States of America"),
-    "linkedin": _c.get("linkedin_url", "https://linkedin.com"),
-    "github": _c.get("github_url", "https://github.com"),
-    "school": _c.get("school_name", "State University"),
+    "linkedin": _c.get("linkedin") or _c.get("linkedin_url", "https://www.linkedin.com/in/ariq-serazi/"),
+    "github": _c.get("github") or _c.get("github_url", "https://github.com/ariqserazi"),
+    "school": _c.get("school") or _c.get("school_name", "Rutgers University"),
     "degree": _c.get("degree", "Bachelor of Science in Computer Science"),
     "degree_ms": _c.get("degree_ms", "Master of Science in Computer Science"),
     "field": _c.get("discipline", "Computer Science"),
@@ -111,34 +131,43 @@ def wait_for_workday_spinner(page, timeout_sec=8):
     time.sleep(1)
 
 def is_authenticated(page):
-    """Checks if session is truly inside the multi-step application form."""
+    """Checks if the user has navigated past login/registration into the application form."""
     try:
-        # If any password input is visible, definitely on sign-in or create account
-        if page.locator('input[type="password"]').is_visible():
-            return False
-        if page.locator('[data-automation-id="SignInWithEmailButton"]').is_visible():
-            return False
-        if page.locator('[data-automation-id="signInSubmitButton"]').is_visible():
-            return False
-        if page.locator('[data-automation-id="createAccountSubmitButton"]').is_visible():
-            return False
-        if page.locator('input[data-automation-id="email"], input[type="email"]').is_visible():
-            return False
+        # Negative signals: only return False if password input or auth submit buttons are actually VISIBLE
+        pw_loc = page.locator('input[data-automation-id="password"], input[type="password"]')
+        if pw_loc.count() > 0:
+            for i in range(pw_loc.count()):
+                try:
+                    if pw_loc.nth(i).is_visible():
+                        return False
+                except Exception:
+                    pass
+
+        auth_btn_selectors = [
+            'button[data-automation-id="signInSubmitButton"]',
+            '[data-automation-id="signInSubmitButton"]',
+            'button[data-automation-id="createAccountSubmitButton"]',
+            '[data-automation-id="createAccountSubmitButton"]',
+            '[data-automation-id="SignInWithEmailButton"]'
+        ]
+        for sel in auth_btn_selectors:
+            btn = page.locator(sel).first
+            if btn.count() > 0 and btn.is_visible():
+                return False
 
         body = page.locator("body").inner_text().lower()
-        if any(k in body for k in ["create account/sign in", "sign in to your account", "sign in with your account", "already have an account? sign in"]):
+        # If still on explicit login screen
+        if ("create account/sign in" in body or "sign in to your account" in body or "step 1: sign in" in body) and ("email address*" in body or "password*" in body):
             return False
 
-        if "candidate home" in body or "settings" in body:
+        # Positive signals: form steps, footer navigation, progress bar, or candidate home
+        if page.locator('button[data-automation-id="bottom-navigation-next-button"], button[data-automation-id="pageFooterNextButton"], [data-automation-id="pageFooter"] button').count() > 0:
             return True
-
-        # Check for genuine application form navigation buttons
-        has_next = page.locator('button[data-automation-id="pageFooterNextButton"], button[data-automation-id="bottom-navigation-next-button"], button:has-text("Save and Continue"), button:has-text("Review and Submit")').is_visible()
-        has_progress = page.locator('[data-automation-id="progressBar"], [data-automation-id="progress-step"]').is_visible()
-        if has_next or has_progress:
+        if page.locator('[data-automation-id="progressBar"]').count() > 0:
             return True
-
         if any(k in body for k in ["my information", "my experience", "application questions", "voluntary disclosures", "review and submit", "autofill with resume"]):
+            return True
+        if "candidate home" in body:
             return True
     except Exception:
         pass
@@ -199,7 +228,7 @@ def handle_workday_auth(page, company_name):
         # Check if error indicates account already exists
         if any(k in body_text for k in ["already exists", "account with this email already exists", "an account with this email address already exists"]):
             print("  ℹ️ Account already exists on this tenant. Switching to Sign In...", flush=True)
-            signin_link = page.locator('[data-automation-id="signInLink"], a:has-text("Sign In"), button:has-text("Sign In")').first
+            signin_link = page.locator('[data-automation-id="signInLink"], button[data-automation-id="signInLink"], button:has-text("Sign In"), a:has-text("Sign In")').first
             if signin_link.is_visible(timeout=2000):
                 signin_link.click(force=True)
                 time.sleep(3)
@@ -208,7 +237,7 @@ def handle_workday_auth(page, company_name):
         # Check if error indicates account does not exist / invalid credentials
         if any(k in body_text for k in ["wrong email address or password", "cannot find your account", "invalid user name", "invalid user name or password"]):
             print("  ℹ️ Account does not exist on this tenant. Switching to Create Account...", flush=True)
-            create_link = page.locator('[data-automation-id="createAccountLink"], a:has-text("Create Account")').first
+            create_link = page.locator('[data-automation-id="createAccountLink"], button[data-automation-id="createAccountLink"], button:has-text("Create Account"), a:has-text("Create Account")').first
             if create_link.is_visible(timeout=2000):
                 create_link.click(force=True)
                 time.sleep(3)
@@ -218,60 +247,104 @@ def handle_workday_auth(page, company_name):
         pw_inp = page.locator('input[data-automation-id="password"]').first
         vpw_inp = page.locator('input[data-automation-id="verifyPassword"]').first
 
-        if vpw_inp.is_visible(timeout=1500):
+        if vpw_inp.count() > 0 and (vpw_inp.is_visible() or vpw_inp.evaluate("e => e.offsetParent !== null")):
             # Create Account mode
-            print("  📝 In Create Account mode. Filling verify password...", flush=True)
-            if email_inp.is_visible():
-                email_inp.fill(CANDIDATE["email"])
-                email_inp.evaluate("el => { el.dispatchEvent(new Event('input', {bubbles: true})); el.dispatchEvent(new Event('change', {bubbles: true})); }")
-            if pw_inp.is_visible():
-                pw_inp.fill(CANDIDATE["password"])
-                pw_inp.evaluate("el => { el.dispatchEvent(new Event('input', {bubbles: true})); el.dispatchEvent(new Event('change', {bubbles: true})); }")
-            vpw_inp.fill(CANDIDATE["password"])
-            vpw_inp.evaluate("el => { el.dispatchEvent(new Event('input', {bubbles: true})); el.dispatchEvent(new Event('change', {bubbles: true})); }")
-            chk = page.locator('input[data-automation-id="createAccountCheckbox"], [data-automation-id="createAccountCheckbox"], label:has-text("consent"), label:has-text("Terms of use")').first
-            if chk.is_visible(timeout=1500):
+            print("  📝 In Create Account mode. Filling credentials...", flush=True)
+            if email_inp.count() > 0:
+                try:
+                    email_inp.scroll_into_view_if_needed()
+                    email_inp.fill(CANDIDATE["email"])
+                    email_inp.evaluate("el => { el.dispatchEvent(new Event('input', {bubbles: true})); el.dispatchEvent(new Event('change', {bubbles: true})); }")
+                except Exception:
+                    pass
+            if pw_inp.count() > 0:
+                try:
+                    pw_inp.scroll_into_view_if_needed()
+                    pw_inp.fill(CANDIDATE["password"])
+                    pw_inp.evaluate("el => { el.dispatchEvent(new Event('input', {bubbles: true})); el.dispatchEvent(new Event('change', {bubbles: true})); }")
+                except Exception:
+                    pass
+            try:
+                vpw_inp.scroll_into_view_if_needed()
+                vpw_inp.fill(CANDIDATE["password"])
+                vpw_inp.evaluate("el => { el.dispatchEvent(new Event('input', {bubbles: true})); el.dispatchEvent(new Event('change', {bubbles: true})); }")
+            except Exception:
+                pass
+            chk = page.locator('input[data-automation-id="createAccountCheckbox"], [data-automation-id="createAccountCheckbox"]').first
+            if chk.count() > 0:
                 try:
                     chk.check(force=True)
                 except Exception:
-                    chk.click(force=True)
-            create_btn = page.locator('[data-automation-id="createAccountSubmitButton"]').first
-            if not create_btn.is_visible(timeout=1500):
-                create_btn = page.locator('div[data-automation-id="click_filter"][aria-label="Create Account"]').first
-            if not create_btn.is_visible(timeout=1000):
-                create_btn = page.locator('button[type="submit"]:has-text("Create Account"), form button:has-text("Create Account")').first
-            if create_btn.is_visible(timeout=2000):
-                create_btn.click(force=True)
-            for _ in range(12):
-                time.sleep(1)
-                if is_authenticated(page):
-                    print("  ✅ Workday authentication successful.", flush=True)
-                    return True
-                if "login" in page.url.lower():
-                    break
-        else:
-            # Sign In mode
-            print("  🔐 Submitting Sign In...", flush=True)
-            if email_inp.is_visible():
-                email_inp.fill(CANDIDATE["email"])
-                email_inp.evaluate("el => { el.dispatchEvent(new Event('input', {bubbles: true})); el.dispatchEvent(new Event('change', {bubbles: true})); }")
-            if pw_inp.is_visible():
-                pw_inp.fill(CANDIDATE["password"])
-                pw_inp.evaluate("el => { el.dispatchEvent(new Event('input', {bubbles: true})); el.dispatchEvent(new Event('change', {bubbles: true})); }")
-            signin_btn = page.locator('[data-automation-id="signInSubmitButton"]').first
-            if not signin_btn.is_visible(timeout=1500):
-                signin_btn = page.locator('div[data-automation-id="click_filter"][aria-label="Sign In"]').first
-            if not signin_btn.is_visible(timeout=1000):
-                signin_btn = page.locator('button[type="submit"]:has-text("Sign In"), form button:has-text("Sign In")').first
-            if signin_btn.is_visible(timeout=2000):
-                signin_btn.click(force=True)
+                    try:
+                        chk.click(force=True)
+                    except Exception:
+                        chk.evaluate("el => { el.checked = true; el.dispatchEvent(new Event('change', {bubbles: true})); }")
+            # Click click_filter overlay if present
+            filter_div = page.locator('[data-automation-id="click_filter"]').first
+            if filter_div.count() > 0 and filter_div.is_visible():
+                try:
+                    filter_div.click()
+                except Exception:
+                    pass
+            create_btn = page.locator('button[data-automation-id="createAccountSubmitButton"], [data-automation-id="createAccountSubmitButton"], button:has-text("Create Account")').first
+            if create_btn.count() > 0:
+                try:
+                    create_btn.click(force=True)
+                except Exception:
+                    create_btn.evaluate("el => { el.click(); if (el.parentElement) el.parentElement.click(); }")
+            try:
+                vpw_inp.press("Enter")
+            except Exception:
+                pass
             for _ in range(12):
                 time.sleep(1)
                 if is_authenticated(page):
                     print("  ✅ Workday authentication successful.", flush=True)
                     return True
                 body_t = page.locator("body").inner_text().lower()
-                if any(k in body_t for k in ["verification code", "security code", "one-time passcode", "enter code", "already exists", "verify your account"]):
+                if any(k in body_t for k in ["already exists", "account with this email already exists"]):
+                    break
+        else:
+            # Sign In mode
+            print("  🔐 Submitting Sign In...", flush=True)
+            if email_inp.count() > 0:
+                try:
+                    email_inp.scroll_into_view_if_needed()
+                    email_inp.fill(CANDIDATE["email"])
+                    email_inp.evaluate("el => { el.dispatchEvent(new Event('input', {bubbles: true})); el.dispatchEvent(new Event('change', {bubbles: true})); }")
+                except Exception:
+                    pass
+            if pw_inp.count() > 0:
+                try:
+                    pw_inp.scroll_into_view_if_needed()
+                    pw_inp.fill(CANDIDATE["password"])
+                    pw_inp.evaluate("el => { el.dispatchEvent(new Event('input', {bubbles: true})); el.dispatchEvent(new Event('change', {bubbles: true})); }")
+                except Exception:
+                    pass
+            # Click click_filter overlay if present
+            filter_div = page.locator('[data-automation-id="click_filter"]').first
+            if filter_div.count() > 0 and filter_div.is_visible():
+                try:
+                    filter_div.click()
+                except Exception:
+                    pass
+            signin_btn = page.locator('button[data-automation-id="signInSubmitButton"], [data-automation-id="signInSubmitButton"]').first
+            if signin_btn.count() > 0:
+                try:
+                    signin_btn.click(force=True)
+                except Exception:
+                    signin_btn.evaluate("el => { el.click(); if (el.parentElement) el.parentElement.click(); }")
+            try:
+                pw_inp.press("Enter")
+            except Exception:
+                pass
+            for _ in range(12):
+                time.sleep(1)
+                if is_authenticated(page):
+                    print("  ✅ Workday authentication successful.", flush=True)
+                    return True
+                body_t = page.locator("body").inner_text().lower()
+                if any(k in body_t for k in ["verification code", "security code", "one-time passcode", "enter code", "already exists", "verify your account", "invalid user name", "wrong email"]):
                     break
 
         if is_authenticated(page):
@@ -296,8 +369,14 @@ def fill_all_workday_section_fields(page, today, comp="", role=""):
     if city.is_visible() and not city.input_value():
         city.fill(CANDIDATE["city"])
     postal = page.locator('input[id*="postalCode" i], input[name*="postalCode" i]').first
-    if postal.is_visible() and not postal.input_value():
-        postal.fill(CANDIDATE["zip"])
+    if postal.is_visible():
+        current_zip = postal.input_value().strip()
+        if not current_zip or current_zip == "10001":
+            postal.fill("08854")
+            try:
+                postal.evaluate("el => { el.dispatchEvent(new Event('input', {bubbles: true})); el.dispatchEvent(new Event('change', {bubbles: true})); }")
+            except Exception:
+                pass
 
     # Email
     em = page.locator('input[id*="emailAddress" i], input[name*="emailAddress" i], input[type="email"]').first
@@ -367,14 +446,36 @@ def fill_all_workday_section_fields(page, today, comp="", role=""):
             time.sleep(1)
 
     # Phone device type
-    pt_btn = page.locator('button[id*="phoneType" i], button[name*="phoneType" i], button[aria-label*="Phone Device Type" i]').first
-    if pt_btn.is_visible() and ("Select One" in (pt_btn.get_attribute("aria-label") or "") or "Select One" in pt_btn.inner_text()):
-        pt_btn.click(force=True)
-        time.sleep(1)
-        mob = page.locator('[role="option"]:has-text("Mobile"), [data-automation-id*="promptOption"]:has-text("Mobile"), li:has-text("Mobile")').first
-        if mob.is_visible():
-            mob.click(force=True)
-            time.sleep(1)
+    pt_btns = page.locator(
+        'button[id*="phoneType" i], button[name*="phoneType" i], '
+        'button[aria-label*="Phone Device Type" i], button[aria-label*="Device Type" i], '
+        'div:has(label:has-text("Phone Device Type")) button, '
+        'div:has(label:has-text("Phone Device Type")) [data-automation-id="select-widget"], '
+        'div:has(label:has-text("Phone Device Type")) div[role="button"], '
+        'div:has(label:has-text("Device Type")) button, '
+        'div:has(label:has-text("Device Type")) [data-automation-id="select-widget"], '
+        'div[data-automation-id*="phoneDeviceType" i] button, '
+        'div[data-automation-id*="phoneDeviceType" i] [data-automation-id="select-widget"]'
+    ).all()
+    for pt in pt_btns:
+        try:
+            if pt.is_visible():
+                txt = ((pt.get_attribute("aria-label") or "") + " " + pt.inner_text()).lower()
+                if "select one" in txt or not pt.inner_text().strip():
+                    pt.scroll_into_view_if_needed(timeout=2000)
+                    pt.click(force=True)
+                    time.sleep(1.2)
+                    mob = page.locator(
+                        '[role="option"]:has-text("Mobile"), [data-automation-id*="promptOption"]:has-text("Mobile"), '
+                        'li:has-text("Mobile"), [role="option"]:has-text("Cell"), [role="option"]:has-text("Home")'
+                    ).first
+                    if mob.is_visible(timeout=2000):
+                        mob.click(force=True)
+                        time.sleep(1)
+                    else:
+                        page.keyboard.press("Escape")
+        except Exception:
+            pass
 
     # Source
     src_inp = page.locator('input[id*="source" i], input[name*="source" i], input[data-automation-id*="source" i]').first
@@ -1560,7 +1661,7 @@ def fill_all_workday_section_fields(page, today, comp="", role=""):
                     c.click(force=True, timeout=2000)
         except Exception:
             pass
-def apply_workday_job(browser, job):
+def apply_workday_job(browser, job, headful=False):
     comp = job["company"].strip()
     role = job.get("role") or job.get("title", "Software Engineer")
     url = job["url"].strip()
@@ -1583,6 +1684,8 @@ def apply_workday_job(browser, job):
     try:
         page.goto(url, wait_until="domcontentloaded", timeout=30000)
         page.wait_for_timeout(3000)
+        if headful:
+            bring_window_to_front()
 
         # 0. Dismiss Cookie banner if present
         c = page.locator('[data-automation-id="legalNoticeAcceptButton"], button:has-text("Accept Cookies"), button:has-text("Accept all")').first
@@ -1595,8 +1698,12 @@ def apply_workday_job(browser, job):
             print("  ℹ️ Already applied according to page banner. Skipping.", flush=True)
             page.close()
             return False
-        if any(k in body_initial for k in ["page you are looking for doesn't exist", "job is no longer available", "no longer accepting applications", "position has been closed"]):
-            print("  ℹ️ Job posting is closed/expired. Skipping.", flush=True)
+        if any(k in body_initial for k in [
+            "page you are looking for doesn't exist", "job is no longer available",
+            "no longer accepting applications", "position has been closed",
+            "workday is currently unavailable", "service interruption", "under maintenance"
+        ]) or "maintenance-page" in page.url.lower():
+            print("  ℹ️ Job posting is closed/expired or tenant under maintenance. Skipping.", flush=True)
             page.close()
             return False
 
@@ -1688,8 +1795,14 @@ def apply_workday_job(browser, job):
                     break
             print(f"  📍 Step {step_idx}: {current_sec}", flush=True)
 
-            if page.locator('input[type="password"]').is_visible() or "sign in" in current_sec.lower():
-                print("  🔑 Re-detected Sign In inside step loop. Handling auth...", flush=True)
+            step_body = page.locator("body").inner_text().lower()
+            if any(k in step_body for k in ["workday is currently unavailable", "service interruption", "under maintenance"]) or "maintenance-page" in page.url.lower():
+                print("  ⚠️ Workday tenant is currently under maintenance. Skipping.", flush=True)
+                page.close()
+                return False
+
+            if not is_authenticated(page):
+                print("  🔑 Re-detected unauthenticated state inside step loop. Handling auth...", flush=True)
                 handle_workday_auth(page, comp)
                 page.wait_for_timeout(3000)
                 continue
@@ -1818,7 +1931,11 @@ def apply_workday_job(browser, job):
             dz_visible = dz_elem.is_visible() if dz_elem.count() > 0 else False
 
             if needs_upload and (dz_visible or file_inps.count() > 0):
-                pdf_path = get_fast_tailored_resume(comp, role)
+                primary_resume = "/Users/ariqserazi/Downloads/Ariq_Serazi__Resume_2026.pdf"
+                if os.path.exists(primary_resume):
+                    pdf_path = primary_resume
+                else:
+                    pdf_path = get_fast_tailored_resume(comp, role)
                 select_btn = page.locator('button:has-text("Select files"), a:has-text("Select files"), [data-automation-id*="upload" i]:has-text("Select"), [data-automation-id="uploadFileButton"]').first
                 if select_btn.is_visible():
                     try:
@@ -1920,7 +2037,7 @@ def apply_workday_job(browser, job):
 
     return False
 
-def run_workday_batch(limit=189, queue_file="application_engine/queue_workday.json"):
+def run_workday_batch(limit=189, queue_file="application_engine/queue_workday.json", headful=False):
     applied_urls, applied_pairs, applied_reqs = load_applied()
     queue_path = Path(queue_file)
     with open(queue_path) as f:
@@ -1951,7 +2068,7 @@ def run_workday_batch(limit=189, queue_file="application_engine/queue_workday.js
     with sync_playwright() as p:
         browser = p.chromium.launch(
             channel="chrome",
-            headless=True,
+            headless=not headful,
             args=["--disable-blink-features=AutomationControlled"]
         )
 
@@ -1960,7 +2077,7 @@ def run_workday_batch(limit=189, queue_file="application_engine/queue_workday.js
                 print(f"🎯 Target of {limit} confirmed submissions reached!", flush=True)
                 break
             print(f"\n>>> [{idx+1}/{len(unapplied)}] (Confirmed: {success}/{limit}) Launching {j['company']} - {j.get('role', j.get('title', ''))}...", flush=True)
-            res = apply_workday_job(browser, j)
+            res = apply_workday_job(browser, j, headful=headful)
             if res:
                 success += 1
                 print(f"✅ Current batch confirmed: {success}/{limit}", flush=True)
@@ -1974,6 +2091,8 @@ def run_workday_batch(limit=189, queue_file="application_engine/queue_workday.js
     print(f"\n🏁 Workday batch complete! Confirmed {success} new submissions.")
 
 if __name__ == "__main__":
-    limit = int(sys.argv[1]) if len(sys.argv) > 1 else 189
-    queue_file = sys.argv[2] if len(sys.argv) > 2 else "application_engine/queue_workday.json"
-    run_workday_batch(limit=limit, queue_file=queue_file)
+    headful = "--headful" in sys.argv
+    args = [a for a in sys.argv[1:] if a != "--headful"]
+    limit = int(args[0]) if len(args) > 0 else 189
+    queue_file = args[1] if len(args) > 1 else "application_engine/queue_workday.json"
+    run_workday_batch(limit=limit, queue_file=queue_file, headful=headful)

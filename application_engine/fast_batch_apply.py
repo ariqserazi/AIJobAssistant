@@ -402,8 +402,8 @@ def execute_job_submission(browser, job, worker_id=1):
     elif platform == "lever":
         fill_lever_fast(page, tailored_pdf)
     else:
-        from ashby_engine.dom_filler import DOMFiller
-        DOMFiller.fill_all_fields(page, tailored_pdf, company, title)
+        from batch_apply_ashby import fill_form_with_diagnostics
+        fill_form_with_diagnostics(page, tailored_pdf)
 
     time.sleep(1)
 
@@ -500,7 +500,7 @@ def run_fast_parallel_batch(target_jobs_path, max_workers=3, limit=20):
     # Fetch applied keys from sheet
     import gspread
     _cfg = load_config() if "load_config" in globals() else {}
-KEYFILE = os.path.expanduser(_cfg.get("google_service_account_key") or os.environ.get("GOOGLE_SERVICE_ACCOUNT_KEY", ""))
+    KEYFILE = os.path.expanduser(_cfg.get("google_service_account_key") or os.environ.get("GOOGLE_SERVICE_ACCOUNT_KEY", ""))
     gc = gspread.service_account(KEYFILE)
     sheet_id = _cfg.get("google_sheet_id") or os.environ.get("GOOGLE_SPREADSHEET_ID", "")
     if not sheet_id:

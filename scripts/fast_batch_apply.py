@@ -500,7 +500,7 @@ def run_fast_parallel_batch(target_jobs_path, max_workers=3, limit=20):
     # Fetch applied keys from sheet
     import gspread
     _cfg = load_config() if "load_config" in globals() else {}
-KEYFILE = os.path.expanduser(_cfg.get("google_service_account_key") or os.environ.get("GOOGLE_SERVICE_ACCOUNT_KEY", ""))
+    KEYFILE = os.path.expanduser(_cfg.get("google_service_account_key") or os.environ.get("GOOGLE_SERVICE_ACCOUNT_KEY", ""))
     gc = gspread.service_account(KEYFILE)
     sheet_id = _cfg.get("google_sheet_id") or os.environ.get("GOOGLE_SPREADSHEET_ID", "")
     if not sheet_id:

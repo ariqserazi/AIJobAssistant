@@ -176,6 +176,25 @@ If the user asks how to connect their Google Sheet, Google Drive, or email track
    - **Scope By Field Entry**: Iterate over each question container (`.ashby-application-form-field-entry`, `[class*="field-entry"]`, `[class*="fieldEntry"]`) individually to prevent cross-field option pollution.
    - **Yes/No Toggle Buttons**: Ashby renders binary choices as `button.ashby-application-form-input-yesno-option` with `data-option="yes"` or `data-option="no"`.
      - Match against candidate rules in `application_profile.md` for work auth, sponsorship, relocation, and background checks.
+   - **Airtight Negative Keyword Rules (Current/Former Employee, Subsidiary, Non-Compete)**:
+     - When an ATS form asks:
+       - *"Are you currently an employee of [Company] or any parent/subsidiary?"* (e.g. Twitch, Amazon, Meta, Google).
+       - *"Have you previously been employed by or worked for the company or subsidiaries?"*
+       - *"Have you previously applied to or interviewed with the company or subsidiaries?"*
+       - *"Are you subject to any non-competition, non-solicitation, or restrictive covenant agreements?"*
+       - *"Do you now or in the future require visa or H-1B sponsorship?"*
+       - *"Have you ever been convicted of a crime or felony?"*
+       - *"Are you related to any current employee or officer of the company?"*
+     - **STRICT RULE**: Always answer **`No`** (or `Never` / `None`). **NEVER** allow binary selects, dropdowns, or radio buttons to default to `Yes` or the first available option.
+   - **Company Application Limits & Pacing**:
+     - Many top tech firms (e.g. Roblox, Waymo, Anthropic) strictly limit candidate applications (e.g., Roblox limits candidates to 5 applications per 30 days). Exceeding these limits triggers automated policy rejections.
+     - Enforce **max 1–2 applications per company per batch**, and **cap total active applications at 4 across history**. Always round-robin interleave jobs across different companies to prevent consecutive hits.
+   - **Strict United States Role Constraint**:
+     - Strictly apply only to positions located in the **United States** (Remote US, NY, NJ, CA, TX, WA, etc.).
+     - Strictly filter out and skip all international/foreign postings (Canada, UK, Europe, India, Asia, Australia, etc.).
+   - **Strict Early-Career & Internship Focus**:
+     - Only apply to early-career roles (Intern, Internship, Co-op, New Grad, Associate, Junior).
+     - Strictly filter out Senior, Staff, Principal, Lead, Architect, Director, Manager, or PhD-level postings.
    - **Demographic & EEO Bubbles**: Select options exactly as specified in candidate's `application_profile.md`.
 5. **Answer Free-Text Questions & Referral Sources**:
    - **STRICT PUNCTUATION RULE**: **Never use dashes (`-`, `–`, `—`) in free-text boxes.** Use periods, commas, or standard spacing instead.

@@ -26,7 +26,24 @@ if __name__ == "__main__":
     processes = []
     log_files = []
 
-    print(f"🚀 Launching {NUM_WORKERS} parallel application workers on {QUEUE_FILE}...", flush=True)
+    try:
+        from config_loader import load_config
+    except ImportError:
+        try:
+            from application_engine.config_loader import load_config
+        except ImportError:
+            def load_config(): return {}
+    _cfg = load_config()
+
+    runner_candidates = [
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "batch_apply_multi_ats.py"),
+        "application_engine/batch_apply_multi_ats.py",
+        "scripts/batch_apply_multi_ats.py",
+        os.path.expanduser("~/.agents/skills/resume-tailor-swe/scripts/batch_apply_multi_ats.py"),
+    ]
+    runner_script = next((c for c in runner_candidates if os.path.exists(c)), "batch_apply_multi_ats.py")
+
+    print(f"🚀 Launching {NUM_WORKERS} parallel application workers on {QUEUE_FILE} (Runner: {runner_script})...", flush=True)
 
     for wid in range(NUM_WORKERS):
         log_path = LOGS_DIR / f"worker_{wid}.log"
@@ -35,7 +52,7 @@ if __name__ == "__main__":
         cmd = [
             sys.executable,
             "-u",
-            "application_engine/batch_apply_multi_ats.py",
+            runner_script,
             str(LIMIT),
             QUEUE_FILE,
             "--worker-id", str(wid),
@@ -49,9 +66,9 @@ if __name__ == "__main__":
     print("\n📡 Real-time progress monitoring active across workers...\n", flush=True)
 
     TARGET_NEW_APPS = int(os.environ.get("TARGET_NEW_APPS", LIMIT))
-    TARGET_TOTAL = int(os.environ.get("TARGET_TOTAL", 1253)) if os.environ.get("TARGET_TOTAL") else None
-    KEYFILE = os.path.expanduser("~/.config/gcloud/legacy_credentials/google-auto-n8n@decoded-tribute-475218-j4.iam.gserviceaccount.com/adc.json")
-    SPREADSHEET_ID = "1ne7TIUj4dIInY8TSrIViwUz9lQplyzJCsGWWgrJZEUY"
+    TARGET_TOTAL = int(os.environ.get("TARGET_TOTAL")) if "TARGET_TOTAL" in os.environ else None
+    KEYFILE = os.path.expanduser(_cfg.get("google_service_account_key") or os.environ.get("GOOGLE_SERVICE_ACCOUNT_KEY") or "~/.config/gcloud/legacy_credentials/google-auto-n8n@decoded-tribute-475218-j4.iam.gserviceaccount.com/adc.json")
+    SPREADSHEET_ID = _cfg.get("google_sheet_id") or os.environ.get("GOOGLE_SPREADSHEET_ID", "1ne7TIUj4dIInY8TSrIViwUz9lQplyzJCsGWWgrJZEUY")
 
     initial_count = 854
     try:

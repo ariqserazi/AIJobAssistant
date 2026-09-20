@@ -431,6 +431,15 @@ class FieldMatcher:
             return CANDIDATE_DATA["email"]
         if any(k in tl for k in ["phone", "mobile", "cell"]):
             return CANDIDATE_DATA["phone"]
+
+        # Sponsorship & Authorization check before location
+        if any(k in tl for k in ["visa status", "immigration status", "status in the us", "current visa"]):
+            return "US Citizen"
+        if any(k in tl for k in ["require sponsorship", "visa sponsorship", "require work authorization", "require authorization", "need sponsorship", "need work authorization", "require an employment visa"]) or (any(k in tl for k in ["require", "need"]) and any(k in tl for k in ["authorization", "sponsorship", "sponsor", "visa"]) and not any(k in tl for k in ["not require", "not need", "without"])):
+            return "No"
+        if any(k in tl for k in ["authorized to work", "legally authorized", "eligible to work"]):
+            return "Yes"
+
         if any(k in tl for k in ["city", "location", "address", "where are you based", "reside"]):
             return CANDIDATE_DATA["location"]
         # Referral / conditional 'Other' follow-up (strictly leave blank if candidate selected standard options)
@@ -498,7 +507,7 @@ class FieldMatcher:
             return "LinkedIn"
 
         # 8. City and State / Hub fallback input
-        if any(k in tl for k in ["input your city and state", "city and state/province in the field below", "if not, please select \"n/a\""]):
+        if any(k in tl for k in ["input your city and state", "city and state/province in the field below"]) or ("if not, please select \"n/a\"" in tl and not any(v in tl for v in ["visa", "sponsor", "auth"])):
             return "Piscataway, New Jersey"
 
         # 9. Company Excitement Prompts (text input)
@@ -529,18 +538,25 @@ class FieldMatcher:
         if any(k in tl for k in ["related to any", "relative", "family member", "conflict of interest"]):
             return "None"
 
-        # Previous employment at company / former employee (Strictly NO)
+        # Previous or current employment at company / former employee (Strictly NO)
         if (any(k in tl for k in [
             "ever worked for", "previously worked for", "worked for", "ever been employed by",
             "previously employed by", "employed by", "worked at", "employed at", "prior employment with",
             "previous employment with", "former employee", "previous employee", "worked as a contractor",
-            "contractor/contingent worker", "partner", "ever worked"
-        ]) or (any(p in tl for p in ["previous", "former", "prior", "past"]) and any(e in tl for e in ["employee", "employed", "contractor", "intern"]))):
+            "contractor/contingent worker", "partner", "ever worked", "currently an employee", "current employee",
+            "currently work for", "currently work at", "currently employed", "are you currently an employee",
+            "are you an employee", "do you currently work", "employed with", "subsidiary", "affiliate",
+            "previously applied", "prior application", "previously interviewed", "non-compete", "non compete",
+            "noncompetition", "non-solicitation", "restrictive covenant"
+        ]) or (any(p in tl for p in ["previous", "former", "prior", "past", "current", "currently"]) and any(e in tl for e in ["employee", "employed", "contractor", "intern", "subsidiary", "affiliate", "applied", "interviewed"]))):
             return "No"
 
         # 12. Fallback for general Yes/No questions appearing in single-line text inputs
         if any(tl.startswith(q) for q in ["are you", "do you", "will you", "can you", "have you", "is there"]):
-            if any(k in tl for k in ["sponsor", "visa", "felony", "crime", "terminated", "fired", "employee", "employed", "worked at", "worked for", "conflict", "relative"]) or (any(k in tl for k in ["require", "need"]) and any(k in tl for k in ["authorization", "sponsor", "visa"])):
+            if any(k in tl for k in [
+                "sponsor", "visa", "felony", "crime", "terminated", "fired", "employee", "employed", "worked at",
+                "worked for", "conflict", "relative", "subsidiary", "affiliate", "previously applied", "non-compete"
+            ]) or (any(k in tl for k in ["require", "need"]) and any(k in tl for k in ["authorization", "sponsor", "visa"])):
                 return "No"
             return "Yes"
             
@@ -551,6 +567,14 @@ class FieldMatcher:
     def match_textarea(title: str, company: str = "the company", role: str = "Software Engineer") -> str:
         tl = title.lower()
         
+        # Socials & Links requested in textarea
+        if "github" in tl:
+            return CANDIDATE_DATA["github"]
+        if "linkedin" in tl:
+            return CANDIDATE_DATA["linkedin"]
+        if any(k in tl for k in ["portfolio", "website", "personal link", "other link"]):
+            return CANDIDATE_DATA["portfolio"]
+
         # Ramp specifics
         if "aws" in tl and "terraform" in tl:
             raw = FREE_TEXT_RESPONSES["ramp_aws_terraform"]
@@ -935,17 +959,21 @@ class FieldMatcher:
         if any(k in tl for k in ["related to any", "relative", "family member", "conflict of interest"]):
             return "No"
 
-        # Previous employment at company / subsidiaries (Strictly NO)
+        # Previous or current employment at company / subsidiaries (Strictly NO)
         if (any(k in tl for k in [
             "ever worked for", "previously worked for", "worked for", "ever been employed by",
             "previously employed by", "employed by", "worked at", "employed at", "prior employment with",
             "previous employment with", "former employee", "previous employee", "worked as a contractor",
-            "contractor/contingent worker", "partner", "ever worked"
-        ]) or (any(p in tl for p in ["previous", "former", "prior", "past"]) and any(e in tl for e in ["employee", "employed", "contractor", "intern"]))):
+            "contractor/contingent worker", "partner", "ever worked", "currently an employee", "current employee",
+            "currently work for", "currently work at", "currently employed", "are you currently an employee",
+            "are you an employee", "do you currently work", "employed with", "subsidiary", "affiliate",
+            "previously applied", "prior application", "previously interviewed", "non-compete", "non compete",
+            "noncompetition", "non-solicitation", "restrictive covenant"
+        ]) or (any(p in tl for p in ["previous", "former", "prior", "past", "current", "currently"]) and any(e in tl for e in ["employee", "employed", "contractor", "intern", "subsidiary", "affiliate", "applied", "interviewed"]))):
             if available_labels:
                 for l in available_labels:
                     ll = l.lower()
-                    if any(neg in ll for neg in ["no", "never", "none", "have not", "i do not", "neither", "not a previous"]):
+                    if any(neg in ll for neg in ["no", "never", "none", "have not", "i do not", "neither", "not a previous", "not currently"]):
                         return l
             return "No"
 
@@ -1277,7 +1305,13 @@ class FieldMatcher:
         if available_labels:
             lowers = [l.lower() for l in available_labels]
             if "yes" in lowers and "no" in lowers:
-                if any(k in tl for k in ["crime", "felony", "terminated", "fired", "lawsuit", "related", "relative", "family member", "conflict"]):
+                if any(k in tl for k in [
+                    "crime", "felony", "terminated", "fired", "lawsuit", "related", "relative", "family member",
+                    "conflict", "employee", "employed", "worked at", "worked for", "worked with", "previously applied",
+                    "prior application", "previously interviewed", "non-compete", "non compete", "noncompetition",
+                    "non-solicitation", "sponsor", "visa", "clearance", "government", "disciplinary", "contractor",
+                    "subsidiary", "affiliate"
+                ]) or (any(k in tl for k in ["require", "need"]) and any(k in tl for k in ["authorization", "sponsor", "visa"])):
                     return "No"
                 return "Yes"
                 

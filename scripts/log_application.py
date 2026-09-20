@@ -16,6 +16,8 @@ try:
 except ImportError:
     pass
 
+import gspread
+
 try:
     from config_loader import load_config
 except ImportError:

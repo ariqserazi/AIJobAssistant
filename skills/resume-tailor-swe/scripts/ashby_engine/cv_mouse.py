@@ -52,10 +52,9 @@ def click_element_cv(page, locator=None, selector='button[type="submit"], button
         import fcntl
         mouse_lock = open("/tmp/physical_mouse.lock", "w")
         fcntl.flock(mouse_lock, fcntl.LOCK_EX)
-        try:
-            # 2. Bring window to front
-            bring_window_to_front(app_name)
-            time.sleep(0.4)
+        # 2. Bring window to front
+        bring_window_to_front(app_name)
+        time.sleep(0.4)
 
         # 3. Viewport-to-Screen Coordinate Math (Exact calibrated Chrome toolbar offset on macOS)
         try:

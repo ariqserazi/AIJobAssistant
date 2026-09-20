@@ -98,9 +98,23 @@ def apply_to_job(target_obj, job: dict, review_delay: float = 4.0) -> bool:
         url = url + ("&embed=true" if "?" in url else "?embed=true")
     company = job.get("company", "the company")
     role = job.get("title") or job.get("role", "Software Engineer")
+    loc = job.get("location", "Remote US")
+
+    FOREIGN_LOC_REGEX = re.compile(
+        r'\b(apj|apac|emea|latam|menap|sea\b|europe|asia|canada|toronto|vancouver|montreal|ontario|waterloo|uk\b|united kingdom|london|england|germany|berlin|munich|india|bangalore|bengaluru|hyderabad|pune|gurgaon|noida|mumbai|singapore|australia|sydney|melbourne|anz\b|france|paris|netherlands|amsterdam|poland|warsaw|krakow|switzerland|zurich|japan|tokyo|taiwan|ireland|dublin|brazil|mexico|israel|china|shanghai|beijing|shenzhen|spain|sweden|korea|philippines|vietnam|colombia|argentina|chile|nigeria|egypt|kenya|south africa)\b',
+        re.IGNORECASE
+    )
+    if FOREIGN_LOC_REGEX.search(loc) and not re.search(r'\b(united states|usa|remote\s*-\s*us|us\b)\b', loc.lower()):
+        print(f"  🚫 [Strict US Filter] Skipping non-US location at {company}: '{loc}'", flush=True)
+        _cleanup()
+        return False
+    if FOREIGN_LOC_REGEX.search(role) and not re.search(r'\b(united states|usa|remote\s*-\s*us|us\b)\b', role.lower()):
+        print(f"  🚫 [Strict US Filter] Skipping non-US role in title at {company}: '{role}'", flush=True)
+        _cleanup()
+        return False
 
     print(f"\n{'='*70}", flush=True)
-    print(f"🚀 Processing: {company} - {role}", flush=True)
+    print(f"🚀 Processing: {company} - {role} ({loc})", flush=True)
     print(f"🔗 URL: {url}", flush=True)
     print(f"{'='*70}", flush=True)
 
@@ -189,36 +203,29 @@ def apply_to_job(target_obj, job: dict, review_delay: float = 4.0) -> bool:
         try:
             body_text = page.evaluate("() => document.body ? document.body.innerText.toLowerCase() : ''")
             if "flagged as possible spam" in body_text or "please submit your application again" in body_text:
-                print("  ⚠️ [Anti-Spam Bypass] Ashby prompted 'please submit your application again'. Disagreeing with reload; executing immediate second hardware click...", flush=True)
-                time.sleep(2.5)
-                if not click_element_cv(page, selector='button:has-text("Submit Application"), button[type="submit"]'):
-                    try:
-                        page.locator('button:has-text("Submit Application"), button[type="submit"]').first.click(force=True, timeout=5000)
-                    except Exception:
-                        pass
-                if SubmissionVerifier.is_confirmed(page, max_wait_seconds=12):
-                    print(f"  ✅ Submission CONFIRMED after anti-spam second click for {company} - {role}!", flush=True)
-                    _handle_success(page, company, role, url, resume_pdf)
-                    _cleanup()
-                    return True
-                
-                # If direct click didn't confirm, reload and re-fill
-                print("  ⚠️ Direct second click did not clear banner. Reloading form and re-filling...", flush=True)
+                print("  ⚠️ [Anti-Spam Bypass] Ashby prompted 'please submit your application again'. Switching back to Application tab to re-submit...", flush=True)
                 time.sleep(2.0)
-                app_tab = page.query_selector("button:has-text('Application'), a:has-text('Application'), [role='tab']:has-text('Application')")
-                if app_tab:
-                    app_tab.click()
+                app_tab = page.locator("button:has-text('Application'), a:has-text('Application'), [role='tab']:has-text('Application')").first
+                if app_tab.is_visible():
+                    app_tab.click(force=True)
                     time.sleep(2.0)
                 else:
-                    page.reload()
-                    time.sleep(3.0)
+                    page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                    time.sleep(2.0)
+
                 DOMFiller.fill_all_fields(page, resume_pdf, company, role)
                 time.sleep(4.0)
                 page.evaluate("window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })")
                 time.sleep(2.0)
-                if not click_element_cv(page, selector='button:has-text("Submit Application"), button[type="submit"]'):
+
+                submit_locator = page.locator('button[type="submit"], button:has-text("Submit Application")').first
+                if submit_locator.is_visible():
+                    submit_locator.scroll_into_view_if_needed()
+                    time.sleep(1.0)
+
+                if not click_element_cv(page, selector='button[type="submit"], button:has-text("Submit Application")'):
                     try:
-                        page.locator('button:has-text("Submit Application"), button[type="submit"]').first.click(force=True, timeout=5000)
+                        submit_locator.click(force=True, timeout=5000)
                     except Exception:
                         pass
                 if SubmissionVerifier.is_confirmed(page, max_wait_seconds=15):

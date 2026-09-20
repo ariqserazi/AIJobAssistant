@@ -128,7 +128,13 @@ def audit_all_field_entries(page):
                     target = "yes"
                 elif any(k in tl for k in ["sponsor", "sponsorship", "visa"]):
                     target = "no"
-                elif any(k in tl for k in ["felony", "relative", "non-compete", "previously employed"]):
+                elif any(k in tl for k in [
+                    "felony", "relative", "non-compete", "non compete", "previously employed", "ever worked",
+                    "previously worked", "current employee", "currently an employee", "currently work",
+                    "currently employed", "employee of", "employed by", "employed with", "subsidiary", "affiliate",
+                    "previously applied", "prior application", "previously interviewed", "noncompetition",
+                    "non-solicitation", "restrictive covenant", "conflict"
+                ]):
                     target = "no"
 
                 for btn in yesno_btns:

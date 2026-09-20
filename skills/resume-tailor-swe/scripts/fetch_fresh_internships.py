@@ -105,47 +105,70 @@ def load_applied_from_sheet():
     print("📊 Fetching applied records from Google Sheet Tracker...", flush=True)
     applied_urls = set()
     applied_pairs = set()
+    applied_companies = defaultdict(int)
     try:
-        gc = gspread.service_account(KEYFILE)
-        sh = gc.open_by_key(SPREADSHEET_ID)
-        ws = sh.sheet1
-        rows = ws.get_all_values()
-        for r in rows[1:]:
-            c = r[0].strip().lower() if len(r) > 0 else ""
-            role_val = r[2].strip().lower() if len(r) > 2 else ""
-            u = r[5].strip().lower().rstrip("/") if len(r) > 5 else ""
-            if c and role_val and c != "company":
-                applied_pairs.add(f"{c}:::{role_val}")
-            if u:
-                applied_urls.add(u)
-        print(f"  ✅ Loaded {len(applied_urls)} applied URLs and {len(applied_pairs)} applied pairs (Total Sheet Rows: {len(rows)}).", flush=True)
+        if os.path.exists(KEYFILE):
+            gc = gspread.service_account(KEYFILE)
+            sh = gc.open_by_key(SPREADSHEET_ID)
+            ws = sh.sheet1
+            rows = ws.get_all_values()
+            for r in rows[1:]:
+                c = r[0].strip().lower() if len(r) > 0 else ""
+                role_val = r[2].strip().lower() if len(r) > 2 else ""
+                u = r[5].strip().lower().rstrip("/") if len(r) > 5 else ""
+                if c and c != "company":
+                    applied_companies[c] += 1
+                if c and role_val and c != "company":
+                    applied_pairs.add(f"{c}:::{role_val}")
+                if u:
+                    applied_urls.add(u)
+            print(f"  ✅ Loaded {len(applied_urls)} applied URLs and {len(applied_pairs)} applied pairs (Total Sheet Rows: {len(rows)}).", flush=True)
     except Exception as e:
         print(f"  ⚠️ Warning fetching sheet records: {e}", flush=True)
-    return applied_urls, applied_pairs
+    return applied_urls, applied_pairs, applied_companies
 
 def is_suitable_candidate_role(title, comp, loc):
     t = title.lower()
     c = comp.lower()
     l = loc.lower()
 
-    if not any(k in t for k in ["intern", "co-op", "coop", "fellow"]):
+    # Strictly require early-career / internship / new grad markers
+    early_career_regex = re.compile(
+        r'\b(intern|internship|internships|co-op|coop|fellow|fellowship|new grad|entry level|associate|junior|class of 2026|class of 2027|university graduate|campus)\b',
+        re.IGNORECASE
+    )
+    if not early_career_regex.search(t):
         return False
 
-    unwanted_seniority = [
-        "senior", "staff", "principal", "lead", "manager", "director", "architect",
-        "head of", "yoe", "years of experience", "3+ years", "4+ years", "5+ years",
-        "doctoral", "postdoc"
+    # Strictly block all senior, staff, principal, lead, architect, manager, or experienced levels
+    seniority_regex = re.compile(
+        r'\b(senior|sr\.|sr\b|staff|principal|lead|manager|director|architect|head of|distinguished|vp\b|vice president|specialist|yoe|years of experience|3\+\s*years|4\+\s*years|5\+\s*years|doctoral|postdoc)\b',
+        re.IGNORECASE
+    )
+    if seniority_regex.search(t):
+        return False
+
+    if re.search(r'\bphd\b', t) and not any(k in t for k in ["undergrad", "ms", "master", "bs"]):
+        return False
+
+    unwanted_defense_aerospace = [
+        "hermeus", "xcimer", "shield ai", "acron aviation", "stokespace", "stoke space",
+        "anduril", "lockheed", "raytheon", "northrop", "general dynamics", "l3harris",
+        "boeing", "bae systems", "relativity space"
     ]
-    if any(k in t for k in unwanted_seniority):
-        return False
-
-    if "phd" in t and not any(k in t for k in ["undergrad", "ms", "master", "bs"]):
+    if any(k in c for k in unwanted_defense_aerospace):
         return False
 
     unwanted_disciplines = [
         "electrical engineer", "hardware engineer", "mechanical", "chemical", "materials",
         "optical", "rf engineer", "propulsion", "aerospace", "civil engineer", "battery",
-        "manufacturing engineer", "structural engineer"
+        "manufacturing engineer", "structural engineer",
+        "gnc", "flight software", "flight control", "avionics", "hypersonic", "guidance",
+        "computational", "computatio", "physics", "simulation", "laser", "fusion", "thermodynamic",
+        "firmware", "embedded", "fpga", "asic", "rtl", "verilog", "pcb", "board bringup",
+        "clearance", "secret clearance", "top secret", "security clearance", "dod",
+        "c#", ".net", "maneuvering", "motion planning", "command & control", "command and control",
+        "vehicle controls", "controls intern", "powertrain"
     ]
     if any(k in t for k in unwanted_disciplines):
         return False
@@ -153,8 +176,9 @@ def is_suitable_candidate_role(title, comp, loc):
     unwanted_nontech = [
         "aml", "investigator", "compliance", "legal", "recruiter", "recruiting", "talent",
         "sales", "marketing", "account executive", "financial analyst", "tax intern",
-        "audit intern", "graphic design", "conversation designer", "content designer",
-        "trader", "trading intern", "equity trader", "quant trader", "broker"
+        "audit intern", "internal audit", "audit", "actuarial", "graphic design",
+        "conversation designer", "content designer", "trader", "trading intern",
+        "equity trader", "quant trader", "broker"
     ]
     if any(k in t for k in unwanted_nontech):
         return False
@@ -307,7 +331,7 @@ def round_robin_interleave(jobs):
     return interleaved
 
 def harvest_fresh(max_age_days=7):
-    applied_urls, applied_pairs = load_applied_from_sheet()
+    applied_urls, applied_pairs, applied_companies = load_applied_from_sheet()
     raw_jobs = []
     
     for src in REPO_SOURCES_HTML:
@@ -349,6 +373,10 @@ def harvest_fresh(max_age_days=7):
     fresh_other = []
     seen = set()
 
+    MAX_PER_COMPANY = 2
+    MAX_EXISTING_COMPANY = 4
+    queued_company_counts = defaultdict(int)
+
     filtered_age_count = 0
     filtered_applied_count = 0
     filtered_role_count = 0
@@ -361,6 +389,7 @@ def harvest_fresh(max_age_days=7):
         age_days = j.get("age_days", 999)
         pair = f"{c.lower()}:::{t.lower()}"
         u_low = u.lower()
+        c_low = c.lower()
 
         if age_days > max_age_days:
             filtered_age_count += 1
@@ -372,12 +401,19 @@ def harvest_fresh(max_age_days=7):
         if u_low in seen or pair in seen:
             continue
 
+        # Prevent exceeding company candidate application policies (Roblox, Waymo, Anthropic, etc.)
+        if applied_companies[c_low] >= MAX_EXISTING_COMPANY:
+            continue
+        if queued_company_counts[c_low] >= MAX_PER_COMPANY:
+            continue
+
         if not is_suitable_candidate_role(t, c, loc):
             filtered_role_count += 1
             continue
 
         seen.add(u_low)
         seen.add(pair)
+        queued_company_counts[c_low] += 1
 
         l_low = loc.lower()
         is_priority_loc = any(k in l_low for k in [

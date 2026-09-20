@@ -142,5 +142,9 @@ scratch_*.py
 test_*.py
 update_*.py
 plan_*.py
+build_*.py
+harvest_*.py
+application_engine/build_*.py
+application_engine/harvest_*.py
 application_engine/plan_*.py
 application_engine/inspect_form.py

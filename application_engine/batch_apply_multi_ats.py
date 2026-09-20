@@ -331,18 +331,38 @@ def fill_greenhouse(page, pdf_path, company="", role="", jd_text=""):
             print(f"  [Greenhouse Engine] Resume upload error: {e}", flush=True)
         time.sleep(1.0)
 
-    # Check if Cover Letter is required and offers 'Enter manually'
+    # Check if Cover Letter is required and offers 'Enter manually' or file upload
     try:
-        cl_sec = page.locator("div:has-text('Cover Letter *'), div:has(label:has-text('Cover Letter *'))").first
-        if cl_sec.count() > 0:
-            man_btn = cl_sec.locator("button:has-text('Enter manually'), a:has-text('Enter manually'), button:has-text('Write')").first
-            if man_btn.count() > 0 and man_btn.is_visible():
-                man_btn.click(force=True)
-                time.sleep(0.5)
-                cl_ta = cl_sec.locator("textarea").first
-                if cl_ta.count() > 0:
-                    cl_ta.fill(get_dynamic_cover_letter())
-                    print("  [Greenhouse Engine] Entered manual cover letter for required field", flush=True)
+        is_cl_req = page.evaluate('''() => {
+            const labels = Array.from(document.querySelectorAll('label, legend, span, h3, h4, div'));
+            for (const l of labels) {
+                if (l.innerText && l.innerText.toLowerCase().includes('cover letter') && (l.innerText.includes('*') || l.innerText.includes('(required)'))) {
+                    return true;
+                }
+            }
+            return false;
+        }''')
+        if is_cl_req:
+            cl_file = page.locator("input#cover_letter, input[type='file'][id*='cover_letter' i], input[type='file'][name*='cover_letter' i]").first
+            if cl_file.count() > 0:
+                try:
+                    cl_file.set_input_files(pdf_path)
+                    print("  [Greenhouse Engine] Uploaded tailored document for required cover letter input.", flush=True)
+                except Exception as cfe:
+                    print(f"  [Greenhouse Engine] Could not set cover letter file: {cfe}", flush=True)
+            man_btns = page.locator("button:has-text('Enter manually'), a:has-text('Enter manually'), button:has-text('Write')").all()
+            for mb in man_btns:
+                if mb.is_visible():
+                    try:
+                        mb.click(force=True)
+                        time.sleep(0.5)
+                        cl_ta = page.locator("textarea[name*='cover_letter' i], textarea#cover_letter_text, div:has-text('Cover Letter') textarea").first
+                        if cl_ta.count() > 0 and not cl_ta.input_value().strip():
+                            cl_ta.fill(get_dynamic_cover_letter())
+                            print("  [Greenhouse Engine] Entered manual cover letter for required field", flush=True)
+                            break
+                    except Exception:
+                        pass
     except Exception as cle:
         print(f"  [Greenhouse Engine] Cover letter check notice: {cle}", flush=True)
 
@@ -1021,12 +1041,30 @@ def fill_greenhouse(page, pdf_path, company="", role="", jd_text=""):
                             target_opt = next((o for o, t in clean_opts if any(w in t for w in ["80", "90", "70", "60", "50", "40"])), next((o for o, t in clean_opts if "yes" in t), opts[len(opts)//2] if opts else None))
                     elif any(k in lbl_text for k in ["highest level of degree currently", "highest level of degree achieved", "highest degree achieved", "highest degree completed", "most recently completed form of education", "completed form of education", "highest level of education completed"]):
                         target_opt = next((o for o, t in clean_opts if "bachelor" in t), next((o for o, t in clean_opts if "master" in t), opts[0] if opts else None))
+                    elif any(k in lbl_text for k in [
+                        "currently an employee", "currently a ", "current employee", "currently work", "currently employed",
+                        "are you an employee", "are you currently an employee", "are you currently a", "do you currently work",
+                        "employee of", "employed by", "employed with", "previous employee", "former employee", "ever worked",
+                        "previously worked", "subsidiary", "affiliate", "previously applied", "prior application",
+                        "previously interviewed", "non-compete", "non compete", "noncompetition", "non-solicitation", "restrictive covenant"
+                    ]):
+                        target_opt = next((o for o, t in clean_opts if t == "no" or "no" in t or "do not" in t), None)
                     elif any(k in lbl_text for k in ["proprietary trading", "trading firm"]):
                         target_opt = next((o for o, t in clean_opts if t == "no" or "no," in t or "do not" in t), None)
-                    elif any(k in lbl_text for k in ["*", "required"]) and len(clean_opts) == 2 and any("yes" in t for _, t in clean_opts) and any("no" in t for _, t in clean_opts):
-                        if any(k in lbl_text for k in ["previously worked", "ever worked", "previously employed", "ever been employed", "currently employed", "conflict", "felony", "crime", "investigation", "disciplinary", "government", "united nations", "relative", "family member", "non-compete", "referred", "referral", "women's", "female", "winternship", "sponsorship", "require sponsorship", "visa", "eligibility"]) or (any(k in lbl_text for k in ["require", "need"]) and any(k in lbl_text for k in ["sponsor", "visa", "auth"])):
-                            target_opt = next((o for o, t in clean_opts if "no" in t), None)
-                        else:
+                    elif any("yes" in t for _, t in clean_opts) and any("no" in t for _, t in clean_opts):
+                        if any(k in lbl_text for k in [
+                            "previously worked", "ever worked", "previously employed", "ever been employed",
+                            "currently employed", "current employee", "currently work", "currently a", "currently an",
+                            "employee of", "employed by", "employed with", "previous employee", "former employee",
+                            "subsidiary", "affiliate", "previously applied", "previously interviewed", "prior application",
+                            "prior interview", "conflict", "felony", "crime", "investigation", "disciplinary",
+                            "government", "united nations", "relative", "family member", "non-compete", "non compete",
+                            "noncompetition", "non-solicitation", "restrictive covenant", "referred", "referral",
+                            "women's", "female", "winternship", "sponsorship", "require sponsorship", "visa", "eligibility",
+                            "h-1b", "opt/cpt"
+                        ]) or (any(k in lbl_text for k in ["require", "need"]) and any(k in lbl_text for k in ["sponsor", "visa", "auth"])):
+                            target_opt = next((o for o, t in clean_opts if t == "no" or "no" in t or "do not" in t), None)
+                        elif any(k in lbl_text for k in ["*", "required", "authorized", "eligible", "consent", "agree", "certify", "confirm", "acknowledge", "18 years"]):
                             target_opt = next((o for o, t in clean_opts if "yes" in t), None)
 
                     if not target_opt:
@@ -1040,7 +1078,10 @@ def fill_greenhouse(page, pdf_path, company="", role="", jd_text=""):
                                 if not target_opt:
                                     target_opt = next((o for o, t in clean_opts if t == "other" or "other" in t), None)
                                 if not target_opt:
-                                    target_opt = next((o for o, t in clean_opts if any(w in t for w in ["yes", "agree", "confirm", "acknowledge", "eligible", "authorized"])), None)
+                                    if any(k in lbl_text for k in ["employee", "employed", "worked at", "worked for", "worked with", "previously applied", "non-compete", "conflict", "relative", "sponsor", "visa"]):
+                                        target_opt = next((o for o, t in clean_opts if "no" in t or "do not" in t or "never" in t), None)
+                                    else:
+                                        target_opt = next((o for o, t in clean_opts if any(w in t for w in ["yes", "agree", "confirm", "acknowledge", "eligible", "authorized"])), None)
                                 if not target_opt:
                                     target_opt = clean_opts[0][0]
                                 print(f"    [Greenhouse RS Fallback] Selected fallback option for required field '{lbl_text[:30]}'", flush=True)
@@ -1288,8 +1329,8 @@ def fill_greenhouse(page, pdf_path, company="", role="", jd_text=""):
                 val_to_select = next((o for o in options if "no" in o or "not" in o or "neither" in o), None)
             elif any(k in txt for k in ["country", "reside", "based in"]):
                 val_to_select = next((o for o in options if "united states" in o or "usa" in o), None)
-            elif any(k in txt for k in ["preferred", "location", "office", "from where"]):
-                val_to_select = next((o for o in options if "new york" in o or "nyc" in o or "remote" in o or "united states" in o or "menlo park" in o), None)
+            elif any(k in txt for k in ["preferred", "location", "office", "from where", "which location", "which office"]):
+                val_to_select = next((o for o in options if any(loc_k in o for loc_k in ["new york", "ny", "new jersey", "nj", "remote", "united states", "clifton park", "menlo park"])), options[0] if options else None)
             elif "gender" in txt:
                 val_to_select = next((o for o in options if "male" in o and "female" not in o), None)
             elif any(k in txt for k in ["sexual orientation", "orientation"]):
@@ -1300,11 +1341,22 @@ def fill_greenhouse(page, pdf_path, company="", role="", jd_text=""):
                 val_to_select = next((o for o in options if any(v in o for v in ["not a protected veteran", "i am not a protected veteran", "not a veteran", "i am not a veteran", "never served", "no military"]) or ("not" in o and "veteran" in o) or o == "no"), None)
             elif "disability" in txt:
                 val_to_select = next((o for o in options if "no" in o or "not" in o or "don't" in o), None)
+            elif any(k in txt for k in [
+                "currently an employee", "currently a ", "current employee", "currently work", "currently employed",
+                "are you an employee", "are you currently an employee", "are you currently a", "do you currently work",
+                "ever worked", "previously worked", "former employee", "previous employee", "employee of", "employed by",
+                "employed with", "subsidiary", "affiliate", "previously applied", "prior application", "previously interviewed",
+                "non-compete", "non compete", "noncompetition", "non-solicitation", "restrictive covenant"
+            ]):
+                val_to_select = next((o for o in options if "no" in o or "never" in o or "do not" in o), None)
             elif any(k in txt for k in ["hear", "source"]):
                 val_to_select = next((o for o in options if "linkedin" in o or "website" in o), None)
 
-            if not val_to_select and len(options) == 1:
-                val_to_select = options[0]
+            if not val_to_select and options:
+                if any(k in txt for k in ["employee", "employed", "worked at", "worked for", "worked with", "previously applied", "non-compete", "conflict", "relative", "sponsor", "visa"]):
+                    val_to_select = next((o for o in options if "no" in o or "never" in o or "do not" in o), None)
+                if not val_to_select:
+                    val_to_select = options[0]
 
             if val_to_select:
                 try:
@@ -1340,7 +1392,7 @@ def fill_greenhouse(page, pdf_path, company="", role="", jd_text=""):
                     if "no" in r_txt:
                         safe_click(r)
                         break
-                elif any(k in txt for k in ["sponsorship", "visa", "require employm", "require visa", "require immigra", "require sponsor", "future require", "now or in the future"]):
+                elif any(k in txt for k in ["sponsorship", "visa", "require employm", "require visa", "require immigra", "require sponsor", "future require", "now or in the future", "h-1b", "opt/cpt", "opt", "cpt"]):
                     if "no" in r_txt:
                         safe_click(r)
                         break
@@ -1352,7 +1404,15 @@ def fill_greenhouse(page, pdf_path, company="", role="", jd_text=""):
                     if "python" in r_txt:
                         safe_click(r)
                         break
-                elif any(k in txt for k in ["ever worked", "previously worked", "former"]):
+                elif any(k in txt for k in [
+                    "ever worked", "previously worked", "former", "currently an employee", "currently a ",
+                    "current employee", "currently work", "currently employed", "are you an employee",
+                    "are you currently an employee", "are you currently a", "do you currently work",
+                    "employee of", "employed by", "employed with", "previous employee", "former employee",
+                    "subsidiary", "affiliate", "previously applied", "prior application", "previously interviewed",
+                    "prior interview", "non-compete", "non compete", "noncompetition", "non-solicitation",
+                    "restrictive covenant"
+                ]):
                     if "no" in r_txt:
                         safe_click(r)
                         break
@@ -1589,9 +1649,6 @@ def fill_lever(page, pdf_path, company="", role="", jd_text=""):
     # Top-level or multi-location dropdowns (only those outside cards/questions)
     for top_sel in page.query_selector_all("select"):
         try:
-            in_card = top_sel.evaluate("s => !!s.closest('.application-question, li.card, div.card, div[class*=\"custom-question\"], .application-additional, .eeo-section, .eeo')")
-            if in_card:
-                continue
             curr_val = top_sel.evaluate("s => s.value")
             if curr_val and curr_val.strip() and curr_val.strip().lower() != "select...":
                 continue
@@ -1599,9 +1656,10 @@ def fill_lever(page, pdf_path, company="", role="", jd_text=""):
             valid_opts = [o for o in opts if o["value"].strip() and "select" not in o["text"].lower()]
             if not valid_opts:
                 continue
-            parent_txt = top_sel.evaluate("s => (s.closest('.application-question, .card, div, li')?.innerText || '').toLowerCase()")
+            sel_name = (top_sel.get_attribute("name") or top_sel.get_attribute("id") or "").lower()
+            parent_txt = top_sel.evaluate("s => ((s.closest('.application-question, li, .card')?.innerText) || (s.closest('div')?.innerText) || '').toLowerCase()")
             chosen_opt = None
-            if any(k in parent_txt for k in ["location", "office", "where"]):
+            if any(k in parent_txt or k in sel_name for k in ["location", "office", "where"]):
                 chosen_opt = next((o for o in valid_opts if any(loc_k in o["text"].lower() for loc_k in ["new york", "ny", "new jersey", "nj", "remote"])), valid_opts[0])
             elif any(k in parent_txt for k in ["veteran", "military"]):
                 chosen_opt = next((o for o in valid_opts if any(v in o["text"].lower() for v in ["not a", "not protected", "i am not", "i identify as not", "neither"])), None)
@@ -1783,7 +1841,7 @@ def fill_lever(page, pdf_path, company="", role="", jd_text=""):
             if not radio_checked:
                 r_texts = [r.evaluate("el => el.closest('label') ? el.closest('label').innerText.toLowerCase() : ''") for r in radios]
                 if any("yes" in t for t in r_texts) and any("no" in t for t in r_texts):
-                    neg = any(k in txt for k in ["previously", "ever worked", "relative", "conflict", "felony", "sponsorship", "visa", "export"])
+                    neg = any(k in txt for k in ["previously", "ever worked", "relative", "conflict", "felony", "sponsorship", "visa", "export", "currently", "current employee", "employee of", "employed by", "working for", "are you an employee"])
                     target_txt = "no" if neg else "yes"
                     for r, t in zip(radios, r_texts):
                         if target_txt in t:
@@ -1810,6 +1868,10 @@ def fill_lever(page, pdf_path, company="", role="", jd_text=""):
             chosen_val = None
             if any(k in txt for k in ["export control", "u.s. person", "us person", " export "]) or re.search(r'\b(itar|ear)\b', txt):
                 chosen_val = next((o["value"] for o in options if "u.s. person" in o["text"].lower() or "us person" in o["text"].lower() or "citizen" in o["text"].lower()), None)
+            elif any(k in txt for k in ["cpt", "opt", "curricular practical", "optional practical"]):
+                chosen_val = next((o["value"] for o in options if "no" in o["text"].lower()), None)
+            elif any(k in txt for k in ["does this work for you", "work for you", "pay is", "rate is", "compensation is"]):
+                chosen_val = next((o["value"] for o in options if "yes" in o["text"].lower()), None)
             elif any(k in txt for k in ["semester", "term", "cohort"]):
                 chosen_val = next((o["value"] for o in options if "summer 2027" in o["text"].lower() or "summer" in o["text"].lower()), None)
             elif any(k in txt for k in ["sponsorship", "visa", "require employm", "require visa", "require immigra", "require sponsor", "future require", "now, or will you in the future"]):
@@ -1924,7 +1986,15 @@ def fill_lever(page, pdf_path, company="", role="", jd_text=""):
         # Text inputs
         ti = q.query_selector("input[type='text']:not([name='name']):not([name='email']):not([name='phone']):not([name='location']):not([name='org']), input.card-field-input")
         if ti and not ti.input_value().strip():
-            if any(k in txt for k in ["academic concentration", "concentration", "major", "field of study", "discipline"]):
+            if any(k in txt for k in ["compensation", "salary", "pay", "rate", "hourly", "expectation"]):
+                ti.fill("$25/hr")
+            elif any(k in txt for k in ["how did you hear", "source", "hear about", "how did you find"]):
+                ti.fill("LinkedIn")
+            elif any(k in txt for k in ["years of", "relevant experience", "years experience"]):
+                ti.fill("2")
+            elif any(k in txt for k in ["what city", "city will you be working", "working from"]):
+                ti.fill("Westfield, IN")
+            elif any(k in txt for k in ["academic concentration", "concentration", "major", "field of study", "discipline"]):
                 ti.fill(CANDIDATE.get("major", "Computer Science"))
             elif any(k in txt for k in ["anticipated graduation", "graduation date", "when is your anticipated", "expected graduation", "when do you graduate"]):
                 ti.fill(CANDIDATE.get("grad_month_year", "May 2026"))
@@ -1959,6 +2029,23 @@ def fill_lever(page, pdf_path, company="", role="", jd_text=""):
                 ti.fill(time.strftime("%m/%d/%Y"))
             elif "signature" in txt or "name" in txt:
                 ti.fill(CANDIDATE["name"])
+            else:
+                ai_val = solve_field_with_ai(txt, "text", [], company, role)
+                if ai_val:
+                    try:
+                        ti.fill(ai_val.replace("-", " "), timeout=3000)
+                        print(f"    [Lever AI Text] Filled '{ai_val}' for '{txt[:30]}'", flush=True)
+                    except Exception:
+                        pass
+                elif q.query_selector("[required], .required, [aria-required='true']") is not None or "*" in txt or "✱" in txt:
+                    try:
+                        ti.fill("N/A", timeout=3000)
+                    except Exception:
+                        pass
+            try:
+                ti.evaluate("el => { el.dispatchEvent(new Event('input', {bubbles: true})); el.dispatchEvent(new Event('change', {bubbles: true})); el.dispatchEvent(new Event('blur', {bubbles: true})); }")
+            except Exception:
+                pass
 
     # 4. EEO disability signature inputs
     sig = page.locator("input[name='eeo[disabilitySignature]'], input[name*='disabilitySignature' i]").first
@@ -1989,6 +2076,41 @@ def fill_lever(page, pdf_path, company="", role="", jd_text=""):
         except Exception:
             pass
 
+    # Sweep for any remaining invalid or unfilled required elements
+    page.evaluate('''() => {
+        document.querySelectorAll('input, select, textarea').forEach(el => {
+            if (!el.checkValidity() || (el.required && !el.value)) {
+                const labelTxt = (el.closest('.application-question, li, div') ? el.closest('.application-question, li, div').innerText : '').toLowerCase();
+                if (el.tagName === 'SELECT') {
+                    if (labelTxt.includes('cpt') || labelTxt.includes('opt') || labelTxt.includes('sponsor')) {
+                        const noOpt = Array.from(el.options).find(o => o.text.toLowerCase().includes('no'));
+                        if (noOpt) el.value = noOpt.value;
+                    } else if (labelTxt.includes('work for you') || labelTxt.includes('pay') || labelTxt.includes('rate')) {
+                        const yesOpt = Array.from(el.options).find(o => o.text.toLowerCase().includes('yes'));
+                        if (yesOpt) el.value = yesOpt.value;
+                    } else if (el.options.length > 1) {
+                        el.selectedIndex = 1;
+                    }
+                } else if (el.tagName === 'INPUT' && (el.type === 'text' || !el.type)) {
+                    if (labelTxt.includes('compensation') || labelTxt.includes('pay') || labelTxt.includes('salary') || labelTxt.includes('rate')) {
+                        el.value = '$25/hr';
+                    } else if (labelTxt.includes('hear') || labelTxt.includes('source')) {
+                        el.value = 'LinkedIn';
+                    } else if (labelTxt.includes('experience') || labelTxt.includes('years')) {
+                        el.value = '2';
+                    } else if (labelTxt.includes('city') || labelTxt.includes('where')) {
+                        el.value = 'Westfield, IN';
+                    } else {
+                        el.value = 'N/A';
+                    }
+                }
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+                el.dispatchEvent(new Event('blur', { bubbles: true }));
+            }
+        });
+    }''')
+
     # 5. Form validation audit
     invalid_fields = page.evaluate('''() => {
         const inv = [];
@@ -2010,6 +2132,17 @@ def apply_to_job(browser, job):
     url = job["url"]
     loc = job.get("location", "Remote US")
     platform = job.get("platform", "greenhouse" if "greenhouse" in url else ("lever" if "lever" in url else "ashby"))
+
+    FOREIGN_LOC_REGEX = re.compile(
+        r'\b(apj|apac|emea|latam|menap|sea\b|europe|asia|canada|toronto|vancouver|montreal|ontario|waterloo|uk\b|united kingdom|london|england|germany|berlin|munich|india|bangalore|bengaluru|hyderabad|pune|gurgaon|noida|mumbai|singapore|australia|sydney|melbourne|anz\b|france|paris|netherlands|amsterdam|poland|warsaw|krakow|switzerland|zurich|japan|tokyo|taiwan|ireland|dublin|brazil|mexico|israel|china|shanghai|beijing|shenzhen|spain|sweden|korea|philippines|vietnam|colombia|argentina|chile|nigeria|egypt|kenya|south africa)\b',
+        re.IGNORECASE
+    )
+    if FOREIGN_LOC_REGEX.search(loc) and not re.search(r'\b(united states|usa|remote\s*-\s*us|us\b)\b', loc.lower()):
+        print(f"  🚫 [Strict US Filter] Skipping non-US location at {company}: '{loc}'", flush=True)
+        return False
+    if FOREIGN_LOC_REGEX.search(title) and not re.search(r'\b(united states|usa|remote\s*-\s*us|us\b)\b', title.lower()):
+        print(f"  🚫 [Strict US Filter] Skipping non-US role in title at {company}: '{title}'", flush=True)
+        return False
 
     print(f"\n{'='*60}", flush=True)
     print(f"[{platform.upper()}] Applying to {company} - {title} ({loc})...", flush=True)
@@ -2132,7 +2265,7 @@ def apply_to_job(browser, job):
         pass
 
     # 3. Submit
-    submit_candidates = page.locator("button#btn-submit, button[type='submit']:not(#hcaptchaSubmitBtn):not(.hidden), input[type='submit'], button:has-text('Submit Application'), button:has-text('Submit application'), button:has-text('Submit')").all()
+    submit_candidates = page.locator("button#btn-submit, button.template-btn-submit, button:has-text('SUBMIT APPLICATION'), button[type='submit']:not(#hcaptchaSubmitBtn):not(.hidden), input[type='submit'], button:has-text('Submit Application'), button:has-text('Submit application'), button:has-text('Submit')").all()
     submit_btn = next((b for b in submit_candidates if b.is_visible() and b.bounding_box() and b.bounding_box().get("width", 0) > 10), None)
     if submit_btn:
         submit_btn.scroll_into_view_if_needed()
@@ -2149,33 +2282,38 @@ def apply_to_job(browser, job):
         except Exception:
             pass
 
-        # Submit cleanly without stealing OS window focus
+        # Submit cleanly: scroll into view and trigger click
+        try:
+            submit_btn.scroll_into_view_if_needed(timeout=3000)
+            time.sleep(0.5)
+            box = submit_btn.bounding_box()
+            if box:
+                page.mouse.move(box['x'] + box['width'] / 2, box['y'] + box['height'] / 2, steps=5)
+                time.sleep(0.1)
+                page.mouse.down()
+                time.sleep(0.1)
+                page.mouse.up()
+                print("  🖱️ Dispatched mouse cursor move & click on submit button!", flush=True)
+        except Exception:
+            pass
+
+        try:
+            submit_btn.click(force=True, timeout=5000)
+            print("  ✅ Clicked submit button via Playwright click!", flush=True)
+        except Exception as e:
+            print(f"  [Playwright Click notice]: {e}", flush=True)
+            try:
+                submit_btn.evaluate("el => { el.click(); if (el.form) el.form.dispatchEvent(new Event('submit', {bubbles: true})); }")
+                print("  ✅ Clicked submit button via JS evaluation!", flush=True)
+            except Exception:
+                pass
+
         if USE_MOUSE:
             try:
                 click_element_cv(page, locator=submit_btn)
-                print("  ✅ Clicked submit button via physical mouse (CV)!", flush=True)
+                print("  ✅ Dispatched physical mouse click (CV)!", flush=True)
             except Exception as e:
-                print(f"  [CV Mouse notice]: {e}, falling back to mouse dispatch...", flush=True)
-                box = submit_btn.bounding_box()
-                if box:
-                    page.mouse.move(box["x"] + box["width"]/2, box["y"] + box["height"]/2)
-                    page.mouse.click(box["x"] + box["width"]/2, box["y"] + box["height"]/2)
-                time.sleep(0.5)
-                try:
-                    submit_btn.evaluate("el => el.click()")
-                except Exception:
-                    pass
-        else:
-            try:
-                submit_btn.click(force=True, timeout=8000)
-                print("  ✅ Clicked submit button!", flush=True)
-            except Exception as e:
-                print(f"  [Playwright Click notice]: {e}. Attempting CV fallback...", flush=True)
-                try:
-                    click_element_cv(page, locator=submit_btn)
-                    print("  ✅ Clicked submit button via fallback!", flush=True)
-                except Exception as e2:
-                    print(f"  [CV Click notice]: {e2}", flush=True)
+                pass
 
         # Check for active CAPTCHA (reCAPTCHA, Turnstile, hCaptcha) to screenshot and solve
         try:
@@ -2368,6 +2506,8 @@ if __name__ == "__main__":
     parser.add_argument("queue_file", type=str, nargs="?", default="application_engine/internship_queue_800.json", help="Path to queue json")
     parser.add_argument("--worker-id", type=int, default=0, help="Worker index (0-indexed)")
     parser.add_argument("--total-workers", type=int, default=1, help="Total parallel workers")
+    parser.add_argument("--headful", action="store_true", help="Launch visible browser in front of user")
+    parser.add_argument("--force", action="store_true", help="Allow re-applying to roles even if previously in sheet")
     args = parser.parse_args()
 
     target_file = Path(args.queue_file)
@@ -2392,17 +2532,27 @@ if __name__ == "__main__":
     success_count = 0
     last_applied_company = None
 
+    if args.headful:
+        USE_MOUSE = True
+        os.environ["USE_MOUSE"] = "true"
+
+    is_headless = not (args.headful or USE_MOUSE or os.getenv("HEADFUL", "false").lower() == "true")
     with sync_playwright() as p:
         browser = p.chromium.launch(
             channel="chrome",
-            headless=not USE_MOUSE,
+            headless=is_headless,
             args=["--disable-blink-features=AutomationControlled"]
         )
+        if not is_headless:
+            bring_window_to_front()
 
         for idx, j in enumerate(all_jobs):
             if success_count >= limit:
                 print(f"\n🎉 Reached target of {limit} submissions!")
                 break
+                
+            if not is_headless:
+                bring_window_to_front()
                 
             comp = j["company"].strip()
             c_low = comp.lower()
@@ -2416,10 +2566,23 @@ if __name__ == "__main__":
                 print(f"  ⏳ Skipping {comp} for now to avoid consecutive applications to the same company (Round-Robin pacing).", flush=True)
                 continue
 
-            # Enforce zero duplicates against sheet and within this run
-            if url in applied_urls or url in applied_in_this_run:
+            # Enforce zero duplicates against sheet unless force re-apply is specified
+            if not args.force:
+                if url in applied_urls or url in applied_in_this_run:
+                    continue
+                if pair_key in applied_pairs or pair_key in applied_in_this_run:
+                    continue
+
+            loc = j.get("location", "Remote US")
+            FOREIGN_LOC_REGEX = re.compile(
+                r'\b(apj|apac|emea|latam|menap|sea\b|europe|asia|canada|toronto|vancouver|montreal|ontario|waterloo|uk\b|united kingdom|london|england|germany|berlin|munich|india|bangalore|bengaluru|hyderabad|pune|gurgaon|noida|mumbai|singapore|australia|sydney|melbourne|anz\b|france|paris|netherlands|amsterdam|poland|warsaw|krakow|switzerland|zurich|japan|tokyo|taiwan|ireland|dublin|brazil|mexico|israel|china|shanghai|beijing|shenzhen|spain|sweden|korea|philippines|vietnam|colombia|argentina|chile|nigeria|egypt|kenya|south africa)\b',
+                re.IGNORECASE
+            )
+            if FOREIGN_LOC_REGEX.search(loc) and not re.search(r'\b(united states|usa|remote\s*-\s*us|us\b)\b', loc.lower()):
+                print(f"  🚫 [Strict US Filter] Skipping non-US location at {comp}: '{loc}'", flush=True)
                 continue
-            if pair_key in applied_pairs or pair_key in applied_in_this_run:
+            if FOREIGN_LOC_REGEX.search(role_title) and not re.search(r'\b(united states|usa|remote\s*-\s*us|us\b)\b', role_title.lower()):
+                print(f"  🚫 [Strict US Filter] Skipping non-US role in title at {comp}: '{role_title}'", flush=True)
                 continue
 
             print(f"\n[{idx+1}/{len(all_jobs)}] Processing: {comp} - {role_title} (Platform: {plat.upper()})", flush=True)
