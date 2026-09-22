@@ -671,6 +671,16 @@ class FieldMatcher:
         if any(k in tl for k in ["graduation date", "grad date", "expected graduation"]):
             return "05/20/2028"
 
+        # Start Date / Ideal Start
+        if any(k in tl for k in ["start date", "ideal start", "available to start", "start working", "earliest start"]):
+            if available_options:
+                for opt in available_options:
+                    ol = opt.lower()
+                    if any(s in ol for s in ["may", "summer", "immediate", "flexible", "asap", "2027", "2026"]):
+                        return opt
+                return available_options[0]
+            return "05/20/2027"
+
 
         # Thumbtack location
         if any(k in tl for k in ["thumbtack", "location you intend to work"]):

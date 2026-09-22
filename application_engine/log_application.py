@@ -7,7 +7,12 @@ import os
 import sys
 import argparse
 import datetime
+import socket
+import time
 from pathlib import Path
+
+# Enforce 15s default socket timeout to prevent indefinite SSL hangs on Google APIs
+socket.setdefaulttimeout(15.0)
 
 # Fix macOS Python SSL certificate validation
 try:
@@ -87,9 +92,6 @@ def log_to_google_sheets(company, role, job_link, status="Submitted - Pending Re
     with open(lock_path, "w") as lock_file:
         fcntl.flock(lock_file, fcntl.LOCK_EX)
         try:
-            ws = get_worksheet()
-            target_row = find_next_row(ws)
-            
             if not date_str:
                 now = datetime.datetime.now()
                 date_str = f"{now.month}/{now.day}/{now.year}"
@@ -115,11 +117,21 @@ def log_to_google_sheets(company, role, job_link, status="Submitted - Pending Re
                 notes,
                 assessment_link
             ]
-            
-            range_name = f"A{target_row}:I{target_row}"
-            ws.update(range_name=range_name, values=[row_values])
-            print(f"Logged application to Google Sheet row {target_row}: {company} - {role}")
-            return target_row
+
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    ws = get_worksheet()
+                    target_row = find_next_row(ws)
+                    range_name = f"A{target_row}:I{target_row}"
+                    ws.update(range_name=range_name, values=[row_values])
+                    print(f"Logged application to Google Sheet row {target_row}: {company} - {role}")
+                    return target_row
+                except Exception as e:
+                    print(f"⚠️ Google Sheet update attempt {attempt+1}/{max_retries} warning: {e}", flush=True)
+                    if attempt == max_retries - 1:
+                        raise e
+                    time.sleep(2.0)
         finally:
             fcntl.flock(lock_file, fcntl.LOCK_UN)
 

@@ -110,27 +110,27 @@ class DOMFiller:
 
             # A. University / School
             if any(k in tl for k in ["university", "school", "college", "recent university"]):
-                # Directly target Rutgers University, New Brunswick
-                page.keyboard.type("New Brunswick", delay=30)
-                rutgers_opt = page.locator("[role='option']:has-text('New Brunswick')").first
-                if not rutgers_opt.is_visible():
-                    rutgers_opt = page.locator("text='Rutgers University, New Brunswick'").first
-                if not rutgers_opt.is_visible():
-                    page.keyboard.press("Meta+a")
+                # Directly type Rutgers to trigger Ashby school autocomplete
+                try:
+                    cb.fill("")
+                except Exception:
+                    page.keyboard.press("ControlOrMeta+a")
                     page.keyboard.press("Backspace")
-                    page.keyboard.type("Rutgers", delay=30)
-                    time.sleep(0.8)
-                    for opt in page.locator("[role='option'], [class*='option'], [class*='result']").all():
-                        if opt.is_visible():
-                            otxt = opt.inner_text().strip().lower()
-                            if "camden" in otxt or "newark" in otxt or "medical" in otxt:
-                                continue
-                            if "new brunswick" in otxt:
-                                rutgers_opt = opt
-                                break
-                            if "rutgers" in otxt and ("state university" in otxt or "new jersey" in otxt):
-                                rutgers_opt = opt
-                                break
+                page.keyboard.type("Rutgers", delay=30)
+                time.sleep(0.8)
+                rutgers_opt = None
+                # Prioritize New Brunswick campus explicitly
+                opts = page.locator("[role='option'], [class*='option'], [class*='result']").all()
+                for opt in opts:
+                    if opt.is_visible():
+                        otxt = opt.inner_text().strip().lower()
+                        if "camden" in otxt or "newark" in otxt or "medical" in otxt:
+                            continue
+                        if "new brunswick" in otxt:
+                            rutgers_opt = opt
+                            break
+                        if "rutgers" in otxt and rutgers_opt is None:
+                            rutgers_opt = opt
                 if rutgers_opt and rutgers_opt.is_visible():
                     opt_txt = rutgers_opt.inner_text().strip()
                     try:
@@ -140,21 +140,42 @@ class DOMFiller:
                     print(f"    [Combobox] {field.title[:30]} -> {opt_txt}", flush=True)
                     return True
                 else:
-                    print("    ⚠️ [Combobox Warning] Rutgers New Brunswick option not found yet.", flush=True)
-                    return False
+                    page.keyboard.press("ArrowDown")
+                    page.keyboard.press("Enter")
+                    time.sleep(0.3)
+                    print(f"    [Combobox] {field.title[:30]} -> Rutgers (keyboard Enter)", flush=True)
+                    return True
 
             # B. Location / City
             elif any(k in tl for k in ["location", "city", "where do you live", "where are you located"]):
-                page.keyboard.type("Piscataway", delay=30)
-                time.sleep(0.6)
-                loc_opt = page.locator("[role='option']:has-text('Piscataway'), [role='option']:has-text('New Jersey'), [role='option']:has-text('New York')").first
-                if loc_opt.is_visible():
+                # Ashby location search: try Jersey City first as it reliably produces an exact US option
+                page.keyboard.press("Meta+a")
+                page.keyboard.press("Backspace")
+                page.keyboard.type("Jersey City", delay=30)
+                time.sleep(0.8)
+                loc_opt = page.locator("[role='option']:has-text('Jersey City'), [role='option']:has-text('New Jersey'), [role='option']:has-text('New York'), [role='option']:has-text('Piscataway')").first
+                if not loc_opt.is_visible():
+                    # Fallback to New York
+                    page.keyboard.press("Meta+a")
+                    page.keyboard.press("Backspace")
+                    page.keyboard.type("New York", delay=30)
+                    time.sleep(0.8)
+                    loc_opt = page.locator("[role='option']:has-text('New York'), [role='option']").first
+
+                if loc_opt and loc_opt.is_visible():
                     opt_txt = loc_opt.inner_text().strip()
                     try:
                         loc_opt.click(force=True, timeout=2500)
                     except Exception:
                         loc_opt.evaluate("e => e.click()")
                     print(f"    [Combobox] {field.title[:30]} -> {opt_txt}", flush=True)
+                    return True
+                else:
+                    # Try pressing ArrowDown and Enter
+                    page.keyboard.press("ArrowDown")
+                    page.keyboard.press("Enter")
+                    time.sleep(0.3)
+                    print(f"    [Combobox] {field.title[:30]} -> Jersey City (keyboard Enter)", flush=True)
                     return True
 
             # C. Field of study
@@ -181,6 +202,34 @@ class DOMFiller:
                     except Exception:
                         yr_opt.evaluate("e => e.click()")
                     print(f"    [Combobox] {field.title[:30]} -> {val}", flush=True)
+                    return True
+
+            # E. Start Date
+            elif any(k in tl for k in ["start date", "ideal start", "available to start", "start working", "earliest start"]):
+                try:
+                    cb.fill("")
+                except Exception:
+                    page.keyboard.press("ControlOrMeta+a")
+                    page.keyboard.press("Backspace")
+                target_date = val or "05/20/2027"
+                try:
+                    cb.press_sequentially(target_date, delay=30)
+                except Exception:
+                    page.keyboard.type(target_date, delay=30)
+                time.sleep(0.8)
+                opt = page.locator("[role='option']:has-text('2027'), [role='option']:has-text('May'), [role='option']:has-text('Summer'), [role='option']:has-text('Immediate'), [role='option']").first
+                if opt and opt.is_visible():
+                    try:
+                        opt.click(force=True, timeout=2500)
+                    except Exception:
+                        opt.evaluate("e => e.click()")
+                    print(f"    [Combobox] {field.title[:30]} -> {opt.inner_text().strip()}", flush=True)
+                    return True
+                else:
+                    page.keyboard.press("ArrowDown")
+                    page.keyboard.press("Enter")
+                    time.sleep(0.3)
+                    print(f"    [Combobox] {field.title[:30]} -> {target_date} (Enter)", flush=True)
                     return True
 
             # General: Type val and click matching option
@@ -265,7 +314,7 @@ class DOMFiller:
             try:
                 el.evaluate("e => { e.dispatchEvent(new Event('input', {bubbles: true})); e.dispatchEvent(new Event('change', {bubbles: true})); e.dispatchEvent(new Event('blur', {bubbles: true})); }")
                 page.keyboard.press("Escape")
-                page.evaluate("() => { document.querySelectorAll('.react-datepicker-popper, .react-datepicker, [data-floating-ui-portal]').forEach(e => e.remove()); }")
+                page.evaluate("() => { document.querySelectorAll('.react-datepicker-popper, .react-datepicker').forEach(e => e.remove()); }")
             except Exception:
                 pass
             print(f"    [Text] {field.title[:30]} -> {val[:35]}", flush=True)
@@ -311,7 +360,7 @@ class DOMFiller:
 
         try:
             try:
-                page.evaluate("() => { document.querySelectorAll('.react-datepicker-popper, .react-datepicker, [data-floating-ui-portal]').forEach(e => { if (e !== document.activeElement && !e.contains(document.activeElement)) e.remove(); }); }")
+                page.evaluate("() => { document.querySelectorAll('.react-datepicker-popper, .react-datepicker').forEach(e => { if (e !== document.activeElement && !e.contains(document.activeElement)) e.remove(); }); }")
             except Exception:
                 pass
             # 1. First priority: Real radio inputs (input[type='radio'])
@@ -481,56 +530,96 @@ class DOMFiller:
     def fill_education_history(cls, page):
         """Ensures Ashby Education History section (School and Degree) is populated."""
         try:
-            edu_containers = page.query_selector_all("div:has-text('Education History')")
+            edu_containers = page.query_selector_all("div:has-text('Education History'), [class*='education' i], [data-field-path*='education' i]")
+            if not edu_containers:
+                edu_containers = [page]
+
             for ec in edu_containers:
                 # Fill School
                 school_inp = ec.query_selector("input[placeholder*='school' i], input[placeholder*='Search schools' i]")
-                if school_inp and not school_inp.input_value().strip():
+                if not school_inp and ec != page:
+                    school_inp = page.query_selector("input[placeholder*='school' i], input[placeholder*='Search schools' i]")
+
+                if school_inp:
+                    val = ""
                     try:
-                        school_inp.click(force=True, timeout=2500)
+                        val = school_inp.input_value().strip()
                     except Exception:
-                        school_inp.evaluate("e => e.focus()")
-                    school_inp.fill("Rutgers")
-                    time.sleep(0.8)
-                    rutgers_opt = None
-                    for opt in page.locator("[role='option'], [class*='option'], [class*='result']").all():
-                        if opt.is_visible():
-                            otxt = opt.inner_text().strip().lower()
-                            if "camden" in otxt or "newark" in otxt or "medical" in otxt:
-                                continue
-                            if "new brunswick" in otxt:
-                                rutgers_opt = opt
-                                break
-                            if "rutgers" in otxt and ("state university" in otxt or "new jersey" in otxt):
-                                rutgers_opt = opt
-                                break
-                    if rutgers_opt and rutgers_opt.is_visible():
+                        pass
+                    if not val or "rutgers" not in val.lower():
                         try:
-                            rutgers_opt.click(force=True, timeout=2500)
+                            school_inp.click(force=True, timeout=2500)
                         except Exception:
-                            rutgers_opt.evaluate("e => e.click()")
-                        print("    [Education] School -> Rutgers, The State University of New Jersey (New Brunswick)", flush=True)
+                            school_inp.evaluate("e => e.focus()")
+                        time.sleep(0.2)
+                        page.keyboard.press("ControlOrMeta+a")
+                        page.keyboard.press("Backspace")
+                        try:
+                            school_inp.press_sequentially("Rutgers", delay=40)
+                        except Exception:
+                            page.keyboard.type("Rutgers", delay=40)
+                        time.sleep(1.0)
+                        rutgers_opt = None
+                        for opt in page.locator("[role='option'], [class*='option'], [class*='result'], li").all():
+                            if opt.is_visible():
+                                otxt = opt.inner_text().strip().lower()
+                                if "camden" in otxt or "newark" in otxt or "medical" in otxt:
+                                    continue
+                                if "new brunswick" in otxt:
+                                    rutgers_opt = opt
+                                    break
+                                if "rutgers" in otxt and ("state university" in otxt or "new jersey" in otxt):
+                                    rutgers_opt = opt
+                                    break
+                                if "rutgers" in otxt and rutgers_opt is None:
+                                    rutgers_opt = opt
+                        if rutgers_opt and rutgers_opt.is_visible():
+                            try:
+                                rutgers_opt.click(force=True, timeout=2500)
+                            except Exception:
+                                rutgers_opt.evaluate("e => e.click()")
+                            print("    [Education] School -> Rutgers, The State University of New Jersey (New Brunswick)", flush=True)
+                        else:
+                            page.keyboard.press("ArrowDown")
+                            page.keyboard.press("Enter")
+                            print("    [Education] School -> Rutgers (keyboard Enter)", flush=True)
+                        try:
+                            school_inp.evaluate("e => { e.dispatchEvent(new Event('input', {bubbles: true})); e.dispatchEvent(new Event('change', {bubbles: true})); e.dispatchEvent(new Event('blur', {bubbles: true})); }")
+                        except Exception:
+                            pass
                 
                 # Fill Degree / Field of Study
                 degree_inp = ec.query_selector("input[placeholder*='degree' i], input[placeholder*='Bachelor' i]")
-                if degree_inp and not degree_inp.input_value().strip():
+                if degree_inp:
+                    d_val = ""
                     try:
-                        degree_inp.click(force=True, timeout=2500)
+                        d_val = degree_inp.input_value().strip()
                     except Exception:
-                        degree_inp.evaluate("e => e.focus()")
-                    degree_inp.fill("Master of Science in Computer Science")
-                    degree_inp.evaluate("e => { e.dispatchEvent(new Event('input', {bubbles: true})); e.dispatchEvent(new Event('change', {bubbles: true})); e.dispatchEvent(new Event('blur', {bubbles: true})); }")
-                    print("    [Education] Degree -> Master of Science in Computer Science", flush=True)
+                        pass
+                    if not d_val:
+                        try:
+                            degree_inp.click(force=True, timeout=2500)
+                        except Exception:
+                            degree_inp.evaluate("e => e.focus()")
+                        degree_inp.fill("Master of Science in Computer Science")
+                        degree_inp.evaluate("e => { e.dispatchEvent(new Event('input', {bubbles: true})); e.dispatchEvent(new Event('change', {bubbles: true})); e.dispatchEvent(new Event('blur', {bubbles: true})); }")
+                        print("    [Education] Degree -> Master of Science in Computer Science", flush=True)
 
                 study_inp = ec.query_selector("input[placeholder*='computer science' i], input[placeholder*='field of study' i], input[placeholder*='major' i]")
-                if study_inp and not study_inp.input_value().strip():
+                if study_inp:
+                    s_val = ""
                     try:
-                        study_inp.click(force=True, timeout=2500)
+                        s_val = study_inp.input_value().strip()
                     except Exception:
-                        study_inp.evaluate("e => e.focus()")
-                    study_inp.fill("Computer Science")
-                    study_inp.evaluate("e => { e.dispatchEvent(new Event('input', {bubbles: true})); e.dispatchEvent(new Event('change', {bubbles: true})); e.dispatchEvent(new Event('blur', {bubbles: true})); }")
-                    print("    [Education] Field of Study -> Computer Science", flush=True)
+                        pass
+                    if not s_val:
+                        try:
+                            study_inp.click(force=True, timeout=2500)
+                        except Exception:
+                            study_inp.evaluate("e => e.focus()")
+                        study_inp.fill("Computer Science")
+                        study_inp.evaluate("e => { e.dispatchEvent(new Event('input', {bubbles: true})); e.dispatchEvent(new Event('change', {bubbles: true})); e.dispatchEvent(new Event('blur', {bubbles: true})); }")
+                        print("    [Education] Field of Study -> Computer Science", flush=True)
         except Exception as e:
             print(f"    [Education Notice] {e}", flush=True)
 

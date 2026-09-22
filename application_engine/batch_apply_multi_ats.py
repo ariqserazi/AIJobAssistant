@@ -277,7 +277,7 @@ def fill_greenhouse(page, pdf_path, company="", role="", jd_text=""):
                     ti.fill("I have extensive experience deploying Gemini and OpenAI models within Python automation pipelines using structured JSON outputs, prompt engineering, and MCP server integrations for reliable tool use and dynamic data retrieval.")
                 elif any(k in ctx for k in ["security clearance", "clearance level"]):
                     ti.fill("None")
-                elif any(k in ctx for k in ["did anyone refer you", "who referred you", "referred by an employee"]):
+                elif any(k in ctx for k in ["refer", "referred", "who referred", "referred by an employee"]) and not any(k in ctx for k in ["preference"]):
                     ti.fill("No")
                 elif any(k in ctx for k in ["visa classification", "visa status", "immigration sponsorship needs", "if working on a visa", "if no, please explain your status", "enter n/a", "enter 'n/a'", "extension options", "when does it expire", "additional detail about your sponsorship", "sponsorship needs"]):
                     ti.fill("N/A")
@@ -306,7 +306,7 @@ def fill_greenhouse(page, pdf_path, company="", role="", jd_text=""):
                     ti.fill(CANDIDATE["name"])
                 elif "email" in ctx:
                     ti.fill(CANDIDATE["email"])
-                elif any(k in ctx for k in ["city", "candidate location", "address"]):
+                elif any(k in ctx for k in ["city", "candidate location", "address", "reside", "currently reside", "where do you live", "location"]):
                     ti.fill(CANDIDATE["location"])
                 elif any(k in ctx for k in ["zip", "postal"]):
                     ti.fill(CANDIDATE["zip_code"])
@@ -412,15 +412,21 @@ def fill_greenhouse(page, pdf_path, company="", role="", jd_text=""):
             ta.fill(f"{CANDIDATE.get('undergrad_start_month', 'September')} {CANDIDATE.get('undergrad_start_year', '2022')} to {CANDIDATE.get('grad_month_year', 'May 2026')}")
         elif any(k in lbl_text for k in ["clouds", "misclassifies", "aircraft computer vision", "flight logs"]):
             ta.fill("I would first aggregate the flight logs into a structured queryable format to correlate false positive obstacle detections against metadata features such as camera light levels, altitude, and timestamp derived solar angles. Next, I would perform exploratory statistical clustering and feature importance analysis to identify specific environmental conditions where cloud edge contrast triggers high confidence false positives. Finally, I would isolate these edge cases to visualize the misclassified frames and establish targeted thresholding or training data augmentations.")
-        elif any(k in lbl_text for k in ["sponsorship for employment visa status", "require sponsorship"]):
-            ta.fill(CANDIDATE.get("sponsorship_required", "No"))
+        elif any(k in lbl_text for k in ["sponsorship", "require sponsorship", "work authorization status", "enter n/a", "visa"]):
+            ta.fill("N/A")
+        elif any(k in lbl_text for k in ["deadline", "offer", "timeline", "process", "obligation", "non-compete", "notice"]):
+            ta.fill("None")
+        elif any(k in lbl_text for k in ["start", "available", "availability"]):
+            ta.fill("May 20, 2027")
+        elif any(k in lbl_text for k in ["language", "programming", "stack"]):
+            ta.fill("Python, Java, Go, C++, SQL, TypeScript")
         elif any(k in lbl_text for k in ["datadog", "why", "interested", "draw", "attract"]):
             ta.fill(RESPONSES.get("why", "I want to build my engineering career with your team because of your relentless focus on high scale distributed systems and engineering rigor. Handling massive transaction volume and telemetry requires world class backend architectures and robust pipelines. I want to work alongside exceptional engineers to build resilient software that keeps global systems reliable."))
         elif any(k in lbl_text for k in ["project", "accomplishment"]):
             ta.fill(RESPONSES.get("project", ""))
         elif any(k in lbl_text for k in ["additional", "anything else", "comment"]):
             pass
-        elif w_req:
+        elif w_req or not any(k in lbl_text for k in ["optional", "cover letter"]):
             ta.fill(RESPONSES["experience"])
         else:
             print("  [Greenhouse Engine] Leaving optional textarea blank", flush=True)
@@ -1061,7 +1067,7 @@ def fill_greenhouse(page, pdf_path, company="", role="", jd_text=""):
                             "government", "united nations", "relative", "family member", "non-compete", "non compete",
                             "noncompetition", "non-solicitation", "restrictive covenant", "referred", "referral",
                             "women's", "female", "winternship", "sponsorship", "require sponsorship", "visa", "eligibility",
-                            "h-1b", "opt/cpt"
+                            "h-1b", "opt/cpt", "phd", "doctoral", "doctorate", "postdoc", "mba", "military", "clearance"
                         ]) or (any(k in lbl_text for k in ["require", "need"]) and any(k in lbl_text for k in ["sponsor", "visa", "auth"])):
                             target_opt = next((o for o, t in clean_opts if t == "no" or "no" in t or "do not" in t), None)
                         elif any(k in lbl_text for k in ["*", "required", "authorized", "eligible", "consent", "agree", "certify", "confirm", "acknowledge", "18 years"]):
@@ -1346,7 +1352,8 @@ def fill_greenhouse(page, pdf_path, company="", role="", jd_text=""):
                 "are you an employee", "are you currently an employee", "are you currently a", "do you currently work",
                 "ever worked", "previously worked", "former employee", "previous employee", "employee of", "employed by",
                 "employed with", "subsidiary", "affiliate", "previously applied", "prior application", "previously interviewed",
-                "non-compete", "non compete", "noncompetition", "non-solicitation", "restrictive covenant"
+                "non-compete", "non compete", "noncompetition", "non-solicitation", "restrictive covenant",
+                "phd", "doctoral", "doctorate", "postdoc", "mba"
             ]):
                 val_to_select = next((o for o in options if "no" in o or "never" in o or "do not" in o), None)
             elif any(k in txt for k in ["hear", "source"]):
@@ -1411,7 +1418,7 @@ def fill_greenhouse(page, pdf_path, company="", role="", jd_text=""):
                     "employee of", "employed by", "employed with", "previous employee", "former employee",
                     "subsidiary", "affiliate", "previously applied", "prior application", "previously interviewed",
                     "prior interview", "non-compete", "non compete", "noncompetition", "non-solicitation",
-                    "restrictive covenant"
+                    "restrictive covenant", "phd", "doctoral", "doctorate", "postdoc", "mba"
                 ]):
                     if "no" in r_txt:
                         safe_click(r)
@@ -2126,6 +2133,110 @@ def fill_lever(page, pdf_path, company="", role="", jd_text=""):
     else:
         print("  ✅ All Lever form fields valid and ready for submission!", flush=True)
 
+def rectify_greenhouse_errors(page, company="", role=""):
+    """
+    Scans Greenhouse form for visible validation errors, .error containers,
+    and uncompleted required inputs/textareas, resolving them dynamically.
+    """
+    fixed = 0
+    try:
+        unfilled = page.evaluate('''() => {
+            const results = [];
+            const fields = document.querySelectorAll('input[type="text"], input[type="tel"], input:not([type]), textarea');
+            for (const f of fields) {
+                if (!f.offsetParent) continue;
+                if (f.value && f.value.trim().length > 0) continue;
+                
+                const parent = f.closest('.field, .form-group, div, fieldset') || f.parentElement;
+                const pText = parent ? (parent.innerText || '').toLowerCase() : '';
+                const hasError = (f.classList.contains('error') || (parent && (parent.classList.contains('error') || parent.classList.contains('field-error'))) || pText.includes('this field is required') || pText.includes('please fill') || pText.includes('is required') || f.getAttribute('aria-invalid') === 'true');
+                const isReq = f.required || f.getAttribute('aria-required') === 'true' || pText.includes('*');
+                
+                if (hasError || isReq) {
+                    const id = f.id || '';
+                    const name = f.name || '';
+                    const tag = f.tagName.toLowerCase();
+                    results.push({ id, name, tag, pText: pText.slice(0, 300) });
+                }
+            }
+            return results;
+        }''')
+        
+        for item in unfilled:
+            f_id = item["id"]
+            f_name = item["name"]
+            p_text = item["pText"]
+            selector = f"#{f_id}" if f_id else f"[name='{f_name}']"
+            loc = page.locator(selector).first
+            if loc.count() == 0 or not loc.is_visible():
+                continue
+            
+            val = "N/A"
+            if any(k in p_text for k in ["refer", "referred", "who referred"]):
+                val = "No"
+            elif any(k in p_text for k in ["reside", "currently reside", "where do you live", "city", "location"]):
+                val = "Piscataway, New Jersey"
+            elif any(k in p_text for k in ["deadline", "offer", "compete", "obligation", "notice"]):
+                val = "None"
+            elif any(k in p_text for k in ["start", "available"]):
+                val = "May 20, 2027"
+            elif any(k in p_text for k in ["gpa"]):
+                val = "3.85"
+            elif any(k in p_text for k in ["salary", "compensation"]):
+                val = "$40/hr"
+            elif item["tag"] == "textarea":
+                if any(k in p_text for k in ["sponsorship", "visa", "authorization", "status"]):
+                    val = "N/A"
+                elif any(k in p_text for k in ["why", "interested", "draw", "attract"]):
+                    val = "I want to build my engineering career with your team because of your focus on high performance distributed systems and engineering rigor. Handling massive transaction volume and telemetry requires world class backend architectures and robust pipelines."
+                else:
+                    val = "I have engineered production microservices and REST APIs, integrating cloud tools with strict schema validation and sub 100ms response times."
+            
+            try:
+                loc.fill(val)
+                loc.dispatch_event("input")
+                loc.dispatch_event("change")
+                loc.dispatch_event("blur")
+                fixed += 1
+                print(f"    [GH Rectifier] Filled '{val[:30]}' into {item['tag']} ({p_text[:40]}...)", flush=True)
+            except Exception as fe:
+                pass
+
+        # Also check for unselected required selects or react-selects
+        unselected_selects = page.evaluate('''() => {
+            const results = [];
+            const sels = document.querySelectorAll('select');
+            for (const s of sels) {
+                if (!s.offsetParent) continue;
+                if (s.value && s.value.trim()) continue;
+                const p = s.closest('.field, div') || s.parentElement;
+                const pText = p ? (p.innerText || '').toLowerCase() : '';
+                if (s.required || pText.includes('this field is required') || pText.includes('*')) {
+                    results.push({ id: s.id, name: s.name, pText: pText.slice(0, 150) });
+                }
+            }
+            return results;
+        }''')
+        for s_item in unselected_selects:
+            s_id = s_item["id"]
+            s_loc = page.locator(f"#{s_id}" if s_id else f"[name='{s_item['name']}']").first
+            if s_loc.count() > 0 and s_loc.is_visible():
+                try:
+                    opts = s_loc.locator("option").all()
+                    for opt in opts[1:]:
+                        v = opt.get_attribute("value")
+                        if v and v.strip():
+                            s_loc.select_option(value=v)
+                            fixed += 1
+                            print(f"    [GH Rectifier] Selected fallback option '{v}' for select", flush=True)
+                            break
+                except Exception:
+                    pass
+
+    except Exception as e:
+        print(f"  ⚠️ Error in Greenhouse diagnostic rectification: {e}", flush=True)
+    return fixed
+
 def apply_to_job(browser, job):
     company = job.get("company", "Company")
     title = job.get("role") or job.get("title") or "Software Engineer"
@@ -2190,7 +2301,7 @@ def apply_to_job(browser, job):
 
     context = browser.new_context(
         viewport={"width": 1280, "height": 900},
-        user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
+        user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36"
     )
     page = context.new_page()
     try:
@@ -2392,7 +2503,58 @@ def apply_to_job(browser, job):
         ]
         has_active_captcha = len(visible_challenge_iframes) > 0
 
+        # Check if Ashby displayed the "flagged as possible spam - please submit your application again" banner
+        if any(k in body_text for k in ["flagged as possible spam", "please submit your application again"]) and not getattr(page, "_anti_spam_retried", False):
+            page._anti_spam_retried = True
+            print("  ⚠️ [Anti-Spam Bypass] Prompted 'please submit your application again'. Waiting 2.5s and re-clicking submit...", flush=True)
+            time.sleep(2.5)
+            try:
+                page.evaluate("window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })")
+                time.sleep(1.0)
+                re_submit = page.locator("button#btn-submit, button[type='submit'], button:has-text('Submit Application'), button:has-text('Submit application'), button:has-text('Submit')").first
+                if re_submit.is_visible():
+                    re_submit.click(force=True, timeout=5000)
+                    print("  🖱️ Re-clicked submit button!", flush=True)
+                    start_wait = time.time()
+                    continue
+            except Exception as re_err:
+                print(f"  ⚠️ Error re-clicking submit: {re_err}", flush=True)
+
         if has_validation_error and not has_sec_box:
+            if platform == "greenhouse" and not getattr(page, "_gh_rectified", False):
+                page._gh_rectified = True
+                print("  [Diagnostics] Greenhouse validation error detected. Running diagnostic rectification...", flush=True)
+                try:
+                    rectified = rectify_greenhouse_errors(page, company, title)
+                    if rectified > 0:
+                        print(f"  [Diagnostics] Rectified {rectified} Greenhouse fields. Re-submitting...", flush=True)
+                        time.sleep(1.5)
+                        re_submit = page.locator("button#submit_app, button[type='submit'], input[type='submit'], button:has-text('Submit application'), button:has-text('Submit Application')").first
+                        if re_submit.is_visible():
+                            re_submit.click(force=True, timeout=5000)
+                            print("  🖱️ Re-clicked submit button after rectification!", flush=True)
+                            start_wait = time.time()
+                            continue
+                except Exception as gh_err:
+                    print(f"  ⚠️ Greenhouse diagnostic rectification error: {gh_err}", flush=True)
+
+            elif platform == "ashby" and not getattr(page, "_ashby_rectified", False):
+                page._ashby_rectified = True
+                print("  [Diagnostics] Ashby validation error detected. Running diagnostic rectification...", flush=True)
+                try:
+                    from ashby_engine.dom_filler import DOMFiller
+                    rectified = DOMFiller.diagnose_and_rectify(page, tailored_pdf, company, title)
+                    if rectified > 0:
+                        print(f"  [Diagnostics] Rectified {rectified} fields. Re-submitting...", flush=True)
+                        time.sleep(1.5)
+                        re_submit = page.locator("button#btn-submit, button[type='submit'], button:has-text('Submit Application'), button:has-text('Submit')").first
+                        if re_submit.is_visible():
+                            re_submit.click(force=True, timeout=5000)
+                            start_wait = time.time()
+                            continue
+                except Exception as diag_err:
+                    print(f"  ⚠️ Diagnostic rectification error: {diag_err}", flush=True)
+
             if not has_active_captcha and elapsed >= 5:
                 print(f"  ⚠️ Validation error on page detected after {elapsed}s. Breaking early.", flush=True)
                 break
@@ -2444,7 +2606,10 @@ def apply_to_job(browser, job):
             "--link", url,
             "--notes", notes
         ]
-        subprocess.run(cmd)
+        try:
+            subprocess.run(cmd, timeout=30)
+        except Exception as log_err:
+            print(f"  ⚠️ Error invoking log_application.py: {log_err}", flush=True)
         context.close()
         return True
     else:

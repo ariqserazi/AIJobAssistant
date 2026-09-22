@@ -224,6 +224,7 @@ def handle_workday_auth(page, company_name):
             if is_authenticated(page):
                 print("  ✅ Workday authentication successful.", flush=True)
                 return True
+            continue
 
         # Check if error indicates account already exists
         if any(k in body_text for k in ["already exists", "account with this email already exists", "an account with this email address already exists"]):
@@ -302,7 +303,15 @@ def handle_workday_auth(page, company_name):
                     print("  ✅ Workday authentication successful.", flush=True)
                     return True
                 body_t = page.locator("body").inner_text().lower()
-                if any(k in body_t for k in ["already exists", "account with this email already exists"]):
+                if any(k in body_t for k in ["already exists", "account with this email already exists", "an account with this email address already exists"]):
+                    print("  ℹ️ Account already exists on this tenant. Switching to Sign In...", flush=True)
+                    signin_link = page.locator('[data-automation-id="signInLink"], button[data-automation-id="signInLink"], button:has-text("Sign In"), a:has-text("Sign In")').first
+                    if signin_link.count() > 0 and signin_link.is_visible():
+                        signin_link.click(force=True)
+                        time.sleep(2)
+                    break
+                if any(k in body_t for k in ["verification code", "security code", "one-time passcode", "enter code"]):
+                    print("  🔔 Workday OTP requested after create account.", flush=True)
                     break
         else:
             # Sign In mode
@@ -344,7 +353,10 @@ def handle_workday_auth(page, company_name):
                     print("  ✅ Workday authentication successful.", flush=True)
                     return True
                 body_t = page.locator("body").inner_text().lower()
-                if any(k in body_t for k in ["verification code", "security code", "one-time passcode", "enter code", "already exists", "verify your account", "invalid user name", "wrong email"]):
+                if any(k in body_t for k in ["verification code", "security code", "one-time passcode", "enter code"]):
+                    print("  🔔 Workday OTP requested after sign in.", flush=True)
+                    break
+                if any(k in body_t for k in ["already exists", "verify your account", "invalid user name", "wrong email"]):
                     break
 
         if is_authenticated(page):
@@ -569,21 +581,61 @@ def fill_all_workday_section_fields(page, today, comp="", role=""):
         time.sleep(1)
         sch.press("Enter")
         time.sleep(2)
-        sopt = page.locator('[role="option"]:has-text("Rutgers"), [data-automation-id*="promptOption"]:has-text("Rutgers")').first
-        if sopt.is_visible():
-            sopt.click(force=True)
-            time.sleep(1)
+        rutgers_opts = page.locator('[role="option"]:has-text("Rutgers"), [data-automation-id*="promptOption"]:has-text("Rutgers")').all()
+        selected_school = False
+        for ropt in rutgers_opts:
+            try:
+                txt = (ropt.inner_text() or "").lower()
+                if "camden" in txt or "newark" in txt:
+                    continue
+                if "new brunswick" in txt:
+                    ropt.click(force=True)
+                    selected_school = True
+                    time.sleep(1)
+                    break
+            except Exception:
+                pass
+        if not selected_school:
+            for ropt in rutgers_opts:
+                try:
+                    txt = (ropt.inner_text() or "").lower()
+                    if "camden" in txt or "newark" in txt:
+                        continue
+                    ropt.click(force=True)
+                    selected_school = True
+                    time.sleep(1)
+                    break
+                except Exception:
+                    pass
 
     deg_btn = page.locator('button[id*="degree" i], button[aria-label*="Degree " i], button[data-automation-id*="degree" i]').first
     if deg_btn.is_visible() and ("Select One" in (deg_btn.get_attribute("aria-label") or "") or "Select One" in deg_btn.inner_text() or "Prompt" in (deg_btn.get_attribute("aria-label") or "")):
         deg_btn.click(force=True)
         time.sleep(1.2)
+        sbox = page.locator('input[data-automation-id*="searchBox"], input[placeholder*="Search" i], input[aria-label*="Search" i]').first
+        if sbox.is_visible():
+            try:
+                sbox.fill("Bachelor")
+                time.sleep(0.5)
+                sbox.press("Enter")
+                time.sleep(1.5)
+            except Exception:
+                pass
         deg_opt = page.locator('[role="option"]:has-text("Bachelor"), [data-automation-id*="promptOption"]:has-text("Bachelor"), [data-automation-id*="select-options"] li:has-text("Bachelor"), li:has-text("Bachelor")').first
         if not deg_opt.is_visible():
             deg_opt = page.locator('[role="option"]:has-text("BS"), [role="option"]:has-text("Undergraduate"), [role="option"]:has-text("Master"), [role="option"]:has-text("MS")').first
         if not deg_opt.is_visible():
-            deg_opt = page.locator('[data-automation-id*="promptOption"], [role="option"]').first
-        if deg_opt.is_visible():
+            for opt in page.locator('[data-automation-id*="promptOption"], [role="option"]').all():
+                try:
+                    otxt = (opt.inner_text() or "").lower()
+                    if any(bad in otxt for bad in ["rutgers", "camden", "newark", "university", "college", "school"]):
+                        continue
+                    if otxt.strip() and "select one" not in otxt:
+                        deg_opt = opt
+                        break
+                except Exception:
+                    pass
+        if deg_opt and deg_opt.is_visible():
             deg_opt.click(force=True)
             time.sleep(1.5)
         else:
@@ -918,10 +970,12 @@ def fill_all_workday_section_fields(page, today, comp="", role=""):
                 inp.fill("Python")
             elif any(k in lbl for k in ["salary", "compensation", "desired pay", "pay expectation", "base salary"]):
                 inp.fill("80000")
-            elif any(k in lbl for k in ["degree", "major"]):
+            elif "degree" in lbl:
+                inp.fill("Bachelor of Science")
+            elif any(k in lbl for k in ["major", "field of study"]):
                 inp.fill("Computer Science")
             elif any(k in lbl for k in ["school", "university", "college", "institution"]):
-                inp.fill("Rutgers University")
+                inp.fill("Rutgers University - New Brunswick")
             elif any(k in lbl for k in ["your name", "full name", "signature", "name *", "employee name"]):
                 inp.fill(f"{CANDIDATE.get('first_name', '')} {CANDIDATE.get('last_name', '')}".strip())
             elif any(k in lbl for k in ["today's date", "todays date", "signature date"]):
@@ -1394,7 +1448,10 @@ def fill_all_workday_section_fields(page, today, comp="", role=""):
             # Pass 3: Fallback for Salary or other (non-strict)
             if match_idx is None and opt_texts and target not in ["Yes", "No", "Male"]:
                 for idx, ot in enumerate(opt_texts):
-                    if ot and "select one" not in ot.lower() and "step" not in ot.lower() and "+1" not in ot and "phone" not in ot.lower():
+                    ot_low = ot.lower()
+                    if target in ["Bachelor", "Degree", "Major"] and any(b in ot_low for b in ["rutgers", "camden", "newark", "university", "college", "school"]):
+                        continue
+                    if ot and "select one" not in ot_low and "step" not in ot_low and "+1" not in ot and "phone" not in ot_low:
                         match_idx = idx
                         break
 
@@ -1835,7 +1892,10 @@ def apply_workday_job(browser, job, headful=False):
                     "--status", "Submitted - Pending Response",
                     "--notes", "Workday autonomous confirmation screenshot saved"
                 ]
-                subprocess.run(cmd, check=False)
+                try:
+                    subprocess.run(cmd, check=False, timeout=30)
+                except Exception as log_e:
+                    print(f"  ⚠️ Error invoking logging script: {log_e}", flush=True)
                 page.close()
                 return True
 
@@ -1919,7 +1979,10 @@ def apply_workday_job(browser, job, headful=False):
                         "--status", "Submitted - Pending Response",
                         "--notes", "Workday autonomous confirmation screenshot saved"
                     ]
-                    subprocess.run(cmd, check=False)
+                    try:
+                        subprocess.run(cmd, check=False, timeout=30)
+                    except Exception as log_e:
+                        print(f"  ⚠️ Error invoking logging script: {log_e}", flush=True)
                     page.close()
                     return True
 
@@ -2003,7 +2066,10 @@ def apply_workday_job(browser, job, headful=False):
                         "--status", "Submitted - Pending Response",
                         "--notes", "Workday autonomous confirmation screenshot saved"
                     ]
-                    subprocess.run(cmd, check=False)
+                    try:
+                        subprocess.run(cmd, check=False, timeout=30)
+                    except Exception as log_e:
+                        print(f"  ⚠️ Error invoking logging script: {log_e}", flush=True)
                     page.close()
                     return True
 

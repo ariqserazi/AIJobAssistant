@@ -671,6 +671,16 @@ class FieldMatcher:
         if any(k in tl for k in ["graduation date", "grad date", "expected graduation"]):
             return "05/20/2028"
 
+        # Start Date / Ideal Start
+        if any(k in tl for k in ["start date", "ideal start", "available to start", "start working", "earliest start"]):
+            if available_options:
+                for opt in available_options:
+                    ol = opt.lower()
+                    if any(s in ol for s in ["may", "summer", "immediate", "flexible", "asap", "2027", "2026"]):
+                        return opt
+                return available_options[0]
+            return "05/20/2027"
+
 
         # Thumbtack location
         if any(k in tl for k in ["thumbtack", "location you intend to work"]):
@@ -749,17 +759,26 @@ class FieldMatcher:
         if any(k in tl for k in ["north korea", "syria", "iran", "cuba", "sanctioned"]):
             return "No"
 
-        # 1. Sponsorship (Strictly NO)
-        if any(k in tl for k in [
-            "sponsor", "sponsorship", "require sponsorship", "visa sponsorship",
-            "now or in the future require"
-        ]) and not any(k in tl for k in ["without sponsorship", "without employer sponsorship", "without requiring sponsorship", "without visa"]):
+        # Active immigration case / visa petition (Strictly NO - Candidate is US Citizen)
+        if any(k in tl for k in ["immigration case", "active immigration", "h-1b extension", "green card", "visa petition", "pending immigration"]):
+            return "No"
+
+        # 1. Sponsorship / Require Visa / Require Work Authorization (Strictly NO)
+        if (
+            any(k in tl for k in ["sponsor", "sponsorship", "require sponsorship", "visa sponsorship", "now or in the future require"])
+            or (any(k in tl for k in ["require", "need", "will you"]) and any(k in tl for k in ["visa", "authorization", "sponsorship", "sponsor", "employment authorization", "employment visa", "work permit"]))
+        ) and not any(k in tl for k in ["without sponsorship", "without employer sponsorship", "without requiring sponsorship", "without visa"]):
             if any(k in tl for k in ["when do you estimate", "when will you require", "estimate you will require"]):
                 if available_labels:
                     for l in available_labels:
                         if any(neg in l.lower() for neg in ["not applicable", "n/a", "do not require", "never", "none"]):
                             return l
                 return ""
+            if available_labels:
+                for l in available_labels:
+                    ll = l.lower()
+                    if any(neg in ll for neg in ["no", "will not", "do not", "never", "none"]):
+                        return l
             return "No"
 
         # 2. Work Authorization Duration (Strictly 2+ years / Permanent)
